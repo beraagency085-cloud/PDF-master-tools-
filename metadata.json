@@ -1,0 +1,6 @@
+{
+  "name": "PDFMaster Tools",
+  "description": "Free, fast, and secure all-in-one PDF utility platform. Compress, merge, split, convert, rotate, protect, watermark, and OCR PDF files directly in your browser with 100% privacy.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
