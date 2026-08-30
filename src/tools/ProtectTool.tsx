@@ -184,7 +184,7 @@ export const ProtectTool: React.FC = () => {
               type="button"
               disabled={processing || !password}
               onClick={handleProcess}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-base font-bold text-white shadow-lg shadow-slate-900/20 hover:bg-slate-800 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[52px]"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 btn-shimmer px-6 py-4.5 text-base font-bold text-white shadow-lg shadow-slate-900/30 hover:from-slate-800 hover:to-slate-900 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[56px] cursor-pointer"
               id="start-protect-button"
             >
               {processing ? (
@@ -194,7 +194,7 @@ export const ProtectTool: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Lock className="w-5 h-5" />
+                  <Lock className="w-5 h-5 text-emerald-400" />
                   <span>Protect PDF with Password</span>
                 </>
               )}

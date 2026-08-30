@@ -164,7 +164,7 @@ export const PdfToWordTool: React.FC = () => {
               type="button"
               disabled={processing}
               onClick={handleConvert}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[52px]"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl btn-gradient-indigo btn-shimmer px-6 py-4.5 text-base font-bold text-white shadow-lg shadow-blue-600/25 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[56px] cursor-pointer"
               id="start-pdf-to-word-button"
             >
               {processing ? (

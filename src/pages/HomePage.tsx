@@ -1,33 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
-  Minimize2,
-  Layers,
-  Scissors,
-  Image,
-  FileImage,
-  FileSpreadsheet,
-  FileType,
-  Table,
-  RotateCw,
-  Trash2,
-  FileCheck,
-  Lock,
-  Unlock,
-  Stamp,
-  Hash,
-  ScanText,
-  FileText,
+  ArrowRight,
   ShieldCheck,
   Zap,
+  Gift,
+  Lock,
+  History,
+  Clock,
+  Trash2,
+  X,
+  TrendingUp,
   Sparkles,
-  ArrowRight,
-  CheckCircle2,
-  Star,
+  ChevronRight,
+  FileText,
 } from 'lucide-react';
 import { ToolDefinition, ToolId } from '../types';
 import { TOOLS_DATA, CATEGORIES } from '../data/toolsData';
-import { AdSlot } from '../components/AdSlot';
+import {
+  SearchHistoryItem,
+  getSearchHistory,
+  saveSearchQuery,
+  removeSearchQuery,
+  clearSearchHistory,
+  formatTimeAgo,
+  POPULAR_SEARCH_TERMS,
+} from '../utils/searchHistory';
 
 interface HomePageProps {
   onSelectTool: (toolId: ToolId) => void;
@@ -37,227 +35,394 @@ interface HomePageProps {
 export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  const getToolIcon = (iconName: string, className: string = 'w-6 h-6') => {
-    switch (iconName) {
-      case 'Minimize2':
-        return <Minimize2 className={className} />;
-      case 'Layers':
-        return <Layers className={className} />;
-      case 'Scissors':
-        return <Scissors className={className} />;
-      case 'Image':
-        return <Image className={className} />;
-      case 'FileImage':
-        return <FileImage className={className} />;
-      case 'FileSpreadsheet':
-        return <FileSpreadsheet className={className} />;
-      case 'FileType':
-        return <FileType className={className} />;
-      case 'Table':
-        return <Table className={className} />;
-      case 'RotateCw':
-        return <RotateCw className={className} />;
-      case 'Trash2':
-        return <Trash2 className={className} />;
-      case 'FileCheck':
-        return <FileCheck className={className} />;
-      case 'Lock':
-        return <Lock className={className} />;
-      case 'Unlock':
-        return <Unlock className={className} />;
-      case 'Stamp':
-        return <Stamp className={className} />;
-      case 'Hash':
-        return <Hash className={className} />;
-      case 'ScanText':
-        return <ScanText className={className} />;
-      default:
-        return <FileText className={className} />;
+  // Load history on mount
+  useEffect(() => {
+    setSearchHistory(getSearchHistory());
+  }, []);
+
+  // Handle clicking outside search container to close history dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchFocused(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleApplySearch = (query: string) => {
+    setSearchQuery(query);
+    setActiveCategory('all');
+    setIsSearchFocused(false);
+    const updated = saveSearchQuery(query);
+    setSearchHistory(updated);
+  };
+
+  const handleRemoveHistoryItem = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const updated = removeSearchQuery(id);
+    setSearchHistory(updated);
+  };
+
+  const handleClearAllHistory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = clearSearchHistory();
+    setSearchHistory(updated);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (searchQuery.trim()) {
+        const updated = saveSearchQuery(searchQuery);
+        setSearchHistory(updated);
+      }
+      setIsSearchFocused(false);
+    } else if (e.key === 'Escape') {
+      setIsSearchFocused(false);
     }
   };
 
+  const handleSelectToolWithHistory = (toolId: ToolId) => {
+    if (searchQuery.trim()) {
+      const updated = saveSearchQuery(searchQuery);
+      setSearchHistory(updated);
+    }
+    onSelectTool(toolId);
+  };
+
   const filteredTools = TOOLS_DATA.filter((tool) => {
-    const matchesSearch =
+    // Category match
+    const matchCat =
+      activeCategory === 'all' ||
+      (activeCategory === 'popular' && (tool.badge === 'Popular' || tool.top)) ||
+      (activeCategory === 'compress' && tool.id === 'compress-pdf') ||
+      (activeCategory === 'organize' &&
+        ['merge-pdf', 'split-pdf', 'rotate-pdf', 'delete-pages', 'extract-pages', 'page-numbers'].includes(
+          tool.id
+        )) ||
+      (activeCategory === 'convert' &&
+        [
+          'jpg-to-pdf',
+          'pdf-to-jpg',
+          'pdf-to-png',
+          'pdf-to-word',
+          'word-to-pdf',
+          'pdf-to-excel',
+          'excel-to-pdf',
+        ].includes(tool.id)) ||
+      (activeCategory === 'security' &&
+        ['protect-pdf', 'unlock-pdf', 'watermark-pdf', 'page-numbers'].includes(tool.id)) ||
+      (activeCategory === 'ocr' && ['pdf-ocr', 'pdf-to-word'].includes(tool.id));
+
+    // Search query match
+    const matchSearch =
       tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tool.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    if (!matchesSearch) return false;
-
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'popular') return tool.badge === 'Popular';
-    return tool.category === activeCategory;
+    return matchCat && matchSearch;
   });
 
-  const popularToolsList = TOOLS_DATA.filter((t) => t.badge === 'Popular').slice(0, 12);
-
   return (
-    <div className="w-full bg-transparent min-h-screen text-[#1e293b]" id="homepage-root">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-10 pb-12 border-b border-slate-200/80">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Top Pill Guarantee */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-md text-red-600 text-xs sm:text-sm font-semibold border border-red-200/60 mb-6 shadow-xs">
-            <ShieldCheck className="w-4 h-4 text-red-600" />
+    <div className="w-full bg-[#f8fafc] min-h-screen text-[#0f172a]" id="homepage-root">
+      {/* HERO SECTION */}
+      <section className="relative overflow-hidden pt-28 pb-14 px-6 text-center">
+        {/* Radial soft glow */}
+        <div
+          className="absolute -top-24 left-1/2 -translate-x-1/2 w-[900px] h-[600px] pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(220,38,38,0.08) 0%, transparent 70%)',
+          }}
+        />
+
+        <div className="max-w-4xl mx-auto relative z-10">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 bg-white border border-[#e2e8f0] px-4 py-2 rounded-full text-[0.85rem] font-semibold text-[#dc2626] mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)] animate-fade-up">
+            <span className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse-dot" />
             <span>Free &amp; Secure — Processed locally in your browser</span>
           </div>
 
-          {/* Hero Heading */}
-          <h2 className="text-3xl sm:text-5xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.15] mb-2">
+          {/* Heading */}
+          <h1 className="text-3xl sm:text-5xl lg:text-5xl font-extrabold tracking-tight text-[#0f172a] leading-tight mb-4 animate-fade-up [animation-delay:100ms]">
             Free PDF Tools — Fast, Simple &amp; Secure
-          </h2>
+          </h1>
 
           {/* Subtitle */}
-          <p className="text-slate-500 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed mb-6">
-            Compress, merge, split, convert and edit PDF files online for free.
+          <p className="text-lg text-[#64748b] max-w-xl mx-auto mb-8 leading-relaxed animate-fade-up [animation-delay:200ms]">
+            Compress, merge, split, convert and edit PDF files online for free. No upload to servers.
           </p>
 
-          {/* Main Search Box */}
-          <div className="max-w-md mx-auto relative">
-            <div className="relative flex items-center shadow-sm rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 focus-within:border-red-500 focus-within:ring-2 focus-within:ring-red-500/20 transition-all">
-              <Search className="w-5 h-5 text-slate-400 ml-3.5 flex-shrink-0" />
+          {/* Search Box */}
+          <div
+            ref={searchContainerRef}
+            className="max-w-[540px] mx-auto relative mb-4 animate-fade-up [animation-delay:300ms]"
+          >
+            <div className="relative flex items-center">
+              <Search className="w-5 h-5 text-[#64748b] dark:text-slate-400 absolute left-4.5 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search PDF tools..."
+                id="searchInput"
+                placeholder="Search PDF tools (e.g. Compress, JPG to PDF, OCR)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-2.5 pr-4 py-3 bg-transparent text-slate-900 placeholder-slate-400 focus:outline-none text-sm"
-                id="main-search-box"
+                onKeyDown={handleSearchKeyDown}
+                className="w-full py-4 pl-12 pr-20 border border-[#e2e8f0] dark:border-slate-700 rounded-full text-base bg-white dark:bg-slate-900 text-[#0f172a] dark:text-slate-100 outline-none shadow-[0_4px_20px_rgba(0,0,0,0.06)] focus:border-[#dc2626] dark:focus:border-red-500 focus:ring-4 focus:ring-[#dc2626]/10 dark:focus:ring-red-500/20 transition-all placeholder:text-[#94a3b8]"
               />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="mr-3 text-xs font-semibold text-slate-400 hover:text-slate-700 px-2 py-1"
-                >
-                  Clear
-                </button>
-              )}
+              <div className="absolute right-3 flex items-center gap-1.5">
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ) : null}
+
+                {searchHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSearchFocused((prev) => !prev)}
+                    className={`p-2 rounded-full transition-all cursor-pointer ${
+                      isSearchFocused
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800'
+                    }`}
+                    title={isSearchFocused ? 'Hide Search History' : 'View Search History'}
+                  >
+                    <History className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Optional Collapsible Search History Panel (Only when history button clicked & query is empty) */}
+            {isSearchFocused && !searchQuery && searchHistory.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_45px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.5)] z-40 p-4 text-left animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <History className="w-3.5 h-3.5 text-red-500" />
+                    <span>Recent Searches</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearAllHistory}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Clear All</span>
+                  </button>
+                </div>
+
+                <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
+                  {searchHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleApplySearch(item.query)}
+                      className="group flex items-center justify-between px-3 py-2 rounded-xl hover:bg-red-50/70 dark:hover:bg-slate-800/80 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-500 transition-colors shrink-0" />
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 group-hover:text-red-600 dark:group-hover:text-red-400 truncate">
+                          {item.query}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                          {formatTimeAgo(item.timestamp)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemoveHistoryItem(e, item.id)}
+                          className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-md hover:bg-red-100/60 dark:hover:bg-slate-700 transition-colors"
+                          title="Remove item"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  setSearchQuery('');
-                }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                  activeCategory === cat.id && !searchQuery
-                    ? 'bg-slate-900 text-white shadow-sm font-semibold'
-                    : 'bg-white/80 backdrop-blur-xs text-slate-600 border border-slate-200/80 hover:border-red-200 hover:bg-white hover:text-red-600'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+          {/* Quick Search Suggestions & Recent History Pills (Clean non-overlapping inline section) */}
+          {!searchQuery && (
+            <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto mb-6 text-xs animate-fade-up [animation-delay:350ms]">
+              {searchHistory.length > 0 ? (
+                <>
+                  <span className="flex items-center gap-1 font-bold text-slate-400 dark:text-slate-500">
+                    <History className="w-3.5 h-3.5 text-red-500" />
+                    <span>Recent:</span>
+                  </span>
+                  {searchHistory.slice(0, 4).map((item) => (
+                    <span
+                      key={item.id}
+                      onClick={() => handleApplySearch(item.query)}
+                      className="group inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:border-red-400 hover:shadow-xs text-slate-700 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 font-semibold cursor-pointer transition-all hover:-translate-y-0.5"
+                    >
+                      <span>{item.query}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveHistoryItem(e, item.id)}
+                        className="p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-slate-800 text-slate-400 hover:text-red-600 transition-colors"
+                        title="Remove from history"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleClearAllHistory}
+                    className="text-[11px] font-bold text-slate-400 hover:text-red-600 dark:hover:text-red-400 underline underline-offset-2 ml-1 cursor-pointer transition-colors"
+                  >
+                    Clear
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="flex items-center gap-1 font-bold text-slate-400 dark:text-slate-500">
+                    <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Popular:</span>
+                  </span>
+                  {POPULAR_SEARCH_TERMS.slice(0, 5).map((term) => (
+                    <button
+                      key={term}
+                      type="button"
+                      onClick={() => handleApplySearch(term)}
+                      className="inline-flex items-center px-3 py-1 rounded-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-400 font-semibold cursor-pointer transition-all hover:-translate-y-0.5"
+                    >
+                      {term}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Categories Pill Buttons with Rich Color Grading & Hover Effects */}
+          <div className="flex flex-wrap justify-center gap-2.5 animate-fade-up [animation-delay:400ms]" id="categories">
+            {CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat.id && !searchQuery;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    setSearchQuery('');
+                  }}
+                  className={`group relative px-4.5 py-2 rounded-full border text-[0.85rem] font-semibold cursor-pointer transition-all duration-300 transform active:scale-95 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-600 text-white border-transparent shadow-[0_4px_16px_rgba(220,38,38,0.35)] -translate-y-0.5'
+                      : 'bg-white/90 backdrop-blur-xs text-[#475569] border-[#e2e8f0] hover:border-red-300 hover:text-red-600 hover:bg-gradient-to-r hover:from-white hover:to-red-50/50 hover:shadow-md hover:-translate-y-0.5'
+                  }`}
+                  data-cat={cat.id}
+                >
+                  <span className="relative z-10 flex items-center gap-1.5">
+                    {cat.id === 'popular' && <span>🔥</span>}
+                    {cat.id === 'compress' && <span>🗜️</span>}
+                    {cat.id === 'organize' && <span>📑</span>}
+                    {cat.id === 'convert' && <span>🔄</span>}
+                    {cat.id === 'security' && <span>🔐</span>}
+                    {cat.id === 'ocr' && <span>✨</span>}
+                    {cat.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Main Tools Grid Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex items-center justify-between mb-6">
+      {/* TOOLS SECTION */}
+      <section className="max-w-[1200px] mx-auto px-6 py-10 pb-20" id="tools">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-[1.75rem] font-extrabold tracking-tight text-[#0f172a]">
               {searchQuery
                 ? `Search Results for "${searchQuery}"`
                 : activeCategory === 'all'
                 ? 'All PDF Tools'
-                : CATEGORIES.find((c) => c.id === activeCategory)?.label}
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Showing {filteredTools.length} functional PDF tools
+                : CATEGORIES.find((c) => c.id === activeCategory)?.label || 'All PDF Tools'}
+            </h2>
+            <p className="text-[#64748b] text-sm mt-1" id="toolCount">
+              Showing {filteredTools.length} functional PDF tool{filteredTools.length !== 1 ? 's' : ''}
             </p>
           </div>
+          {activeCategory !== 'all' && (
+            <button
+              onClick={() => setActiveCategory('all')}
+              className="text-xs font-bold text-red-600 hover:text-red-700 underline underline-offset-4"
+            >
+              View All Tools →
+            </button>
+          )}
         </div>
 
-        {/* Tool Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="tools-grid">
-          {filteredTools.map((tool, index) => {
-            const isFirstImageToPdf = tool.id === 'jpg-to-pdf' && index === 0 && activeCategory === 'all' && !searchQuery;
-
-            // Distinct frosted category badge color mapping
-            const getCategoryColor = (cat: string) => {
-              switch (cat) {
-                case 'compress':
-                  return { bg: 'bg-red-50', text: 'text-red-600', hoverBorder: 'hover:border-red-200', hoverBg: 'group-hover:bg-red-600' };
-                case 'merge-split':
-                  return { bg: 'bg-blue-50', text: 'text-blue-600', hoverBorder: 'hover:border-blue-200', hoverBg: 'group-hover:bg-blue-600' };
-                case 'convert-to':
-                case 'convert-from':
-                  return { bg: 'bg-purple-50', text: 'text-purple-600', hoverBorder: 'hover:border-purple-200', hoverBg: 'group-hover:bg-purple-600' };
-                case 'security':
-                  return { bg: 'bg-indigo-50', text: 'text-indigo-600', hoverBorder: 'hover:border-indigo-200', hoverBg: 'group-hover:bg-indigo-600' };
-                case 'ocr':
-                  return { bg: 'bg-cyan-50', text: 'text-cyan-600', hoverBorder: 'hover:border-cyan-200', hoverBg: 'group-hover:bg-cyan-600' };
-                default:
-                  return { bg: 'bg-red-50', text: 'text-red-600', hoverBorder: 'hover:border-red-200', hoverBg: 'group-hover:bg-red-600' };
-              }
-            };
-            const catColors = getCategoryColor(tool.category);
+        {/* Tools Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5" id="toolsGrid">
+          {filteredTools.map((tool, i) => {
+            const isFeatured = tool.top === true || (tool.id === 'jpg-to-pdf' && i === 0);
 
             return (
               <div
                 key={tool.id}
-                onClick={() => onSelectTool(tool.id)}
-                className={`group relative flex flex-col justify-between rounded-2xl bg-white/90 backdrop-blur-xs p-5 transition-all cursor-pointer select-none ${
-                  isFirstImageToPdf
-                    ? 'border-2 border-red-500/80 shadow-md shadow-red-500/10 ring-2 ring-red-500/10 hover:shadow-lg hover:-translate-y-1'
-                    : `border border-slate-200/90 shadow-sm ${catColors.hoverBorder} hover:shadow-md hover:-translate-y-0.5`
+                onClick={() => handleSelectToolWithHistory(tool.id)}
+                style={{ transitionDelay: `${i * 25}ms` }}
+                className={`group relative rounded-[20px] p-6 cursor-pointer overflow-hidden transition-all duration-300 ease-out transform hover:-translate-y-2 hover:scale-[1.025] active:scale-[0.98] group-hover:shadow-[0_0_20px_rgba(220,38,38,0.3)] flex flex-col justify-between ${
+                  isFeatured
+                    ? 'bg-gradient-to-br from-white via-rose-50/30 to-red-50/50 border-[1.5px] border-red-500/80 shadow-[0_8px_24px_rgba(220,38,38,0.12)] hover:shadow-[0_22px_45px_-10px_rgba(220,38,38,0.38),0_0_25px_rgba(220,38,38,0.2)] ring-1 ring-red-500/25 hover:border-red-600'
+                    : 'bg-white border-[1.5px] border-slate-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:border-red-400/80 hover:shadow-[0_20px_45px_-10px_rgba(220,38,38,0.24),0_0_22px_rgba(220,38,38,0.14)] hover:bg-gradient-to-br hover:from-white hover:via-rose-50/20 hover:to-white'
                 }`}
                 id={`tool-card-${tool.id}`}
               >
-                <div>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`p-2.5 rounded-xl ${
-                      isFirstImageToPdf
-                        ? 'bg-red-600 text-white shadow-xs'
-                        : `${catColors.bg} ${catColors.text} ${catColors.hoverBg} group-hover:text-white shadow-2xs`
-                    } transition-colors`}>
-                      {getToolIcon(tool.iconName, 'w-5 h-5')}
+                {/* Subtle Ambient Glow on Hover */}
+                <div className="pointer-events-none absolute -inset-px rounded-[20px] bg-gradient-to-br from-red-500/10 via-transparent to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                <div className="relative z-10">
+                  {/* Top Bar: Icon + Badge with Color Grading */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 rounded-[14px] bg-gradient-to-br from-red-50 to-rose-100/70 text-[#dc2626] border border-red-100/80 flex items-center justify-center text-2xl transition-all duration-300 group-hover:bg-gradient-to-br group-hover:from-red-600 group-hover:to-rose-600 group-hover:text-white group-hover:scale-110 group-hover:rotate-2 group-hover:shadow-[0_6px_20px_rgba(220,38,38,0.4)]">
+                      <span>{tool.emoji || '📄'}</span>
                     </div>
 
-                    {isFirstImageToPdf ? (
-                      <span className="rounded-md bg-red-600 text-white font-extrabold text-[10px] uppercase px-2.5 py-0.5 shadow-2xs flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        <span>#1 Top Tool</span>
+                    {isFeatured ? (
+                      <span className="text-[0.7rem] font-extrabold uppercase tracking-wider bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 text-white px-3 py-1 rounded-full shadow-[0_2px_10px_rgba(220,38,38,0.35)] flex items-center gap-1">
+                        <span>⭐</span> #1 TOP TOOL
                       </span>
                     ) : tool.badge ? (
-                      <span className="rounded-md bg-red-50 text-red-700 font-bold text-[10px] uppercase px-2 py-0.5 border border-red-100">
+                      <span className="text-[0.7rem] font-bold uppercase tracking-wider bg-gradient-to-r from-red-50 to-rose-50 text-[#dc2626] px-2.5 py-1 rounded-full border border-red-200/80">
                         {tool.badge}
                       </span>
                     ) : null}
                   </div>
 
-                  <h4 className={`font-bold text-sm transition-colors ${
-                    isFirstImageToPdf ? 'text-red-600 group-hover:text-red-700' : 'text-slate-900 group-hover:text-red-600'
-                  }`}>
+                  {/* Title & Description */}
+                  <h3 className="text-[1.1rem] font-bold text-[#0f172a] mb-2 group-hover:text-[#dc2626] transition-colors">
                     {tool.title}
-                  </h4>
-
-                  <p className="mt-1.5 text-xs text-slate-500 leading-relaxed line-clamp-2">
+                  </h3>
+                  <p className="text-[0.875rem] text-[#64748b] leading-relaxed mb-5">
                     {tool.description}
                   </p>
-
-                  {isFirstImageToPdf && (
-                    <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-semibold text-slate-600">
-                      <span className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-100/80">📷 Camera</span>
-                      <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-100/80">🖼️ Gallery</span>
-                      <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100/80">📁 Upload</span>
-                    </div>
-                  )}
                 </div>
 
-                <div className={`mt-4 pt-3 border-t flex items-center justify-between text-xs font-semibold ${
-                  isFirstImageToPdf ? 'border-red-100 text-red-600 font-bold' : 'border-slate-100/80 text-red-600'
-                }`}>
-                  <span>{isFirstImageToPdf ? 'Open Image to PDF' : 'Open Tool'}</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                {/* Open Tool Button with Gradient Hover */}
+                <div className="relative z-10 pt-3.5 border-t border-slate-100/90 flex items-center justify-between font-bold text-[0.875rem] text-[#dc2626] transition-all">
+                  <span className="group-hover:translate-x-1 transition-transform">Open Tool</span>
+                  <div className="w-7 h-7 rounded-full bg-red-50 group-hover:bg-gradient-to-r group-hover:from-red-600 group-hover:to-rose-600 group-hover:text-white text-red-600 flex items-center justify-center text-xs transition-all duration-300 group-hover:translate-x-1 group-hover:shadow-sm">
+                    →
+                  </div>
                 </div>
               </div>
             );
@@ -265,14 +430,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
         </div>
 
         {filteredTools.length === 0 && (
-          <div className="text-center py-16 bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200 p-8 shadow-sm">
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
             <p className="text-base font-bold text-slate-700">No tools found matching your query.</p>
             <button
               onClick={() => {
                 setSearchQuery('');
                 setActiveCategory('all');
               }}
-              className="mt-4 px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
+              className="mt-4 px-6 py-3 rounded-full btn-gradient-primary btn-shimmer text-xs font-bold transition-all shadow-md"
             >
               Reset Filters
             </button>
@@ -280,64 +445,41 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
         )}
       </section>
 
-      {/* AdSense Space Between Tool Sections */}
-      <AdSlot format="banner" />
-
-      {/* Value Proposition Features */}
-      <section className="bg-white/70 backdrop-blur-md border-y border-slate-200/80 py-14">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Why Millions Rely on PDFMaster Tools
-            </h3>
-            <p className="text-sm text-slate-500 mt-2">
-              Engineered for absolute privacy, rapid in-browser processing, and high fidelity.
+      {/* FEATURES SECTION */}
+      <section className="bg-white border-t border-b border-[#e2e8f0] py-16 px-6">
+        <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-[16px] bg-[#fef2f2] text-[#dc2626] flex items-center justify-center text-3xl mb-4">
+              <span>🔒</span>
+            </div>
+            <h3 className="text-[1.15rem] font-bold text-[#0f172a]">100% Private</h3>
+            <p className="text-[#64748b] text-[0.95rem] leading-relaxed">
+              All processing happens in your browser. Files never leave your device.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="p-5 rounded-2xl bg-white/80 backdrop-blur-xs border border-slate-200/80 shadow-xs space-y-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-sm text-slate-900">100% Private</h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Files are processed directly inside your browser memory. Your confidential documents never leave your device.
-              </p>
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-[16px] bg-[#fef2f2] text-[#dc2626] flex items-center justify-center text-3xl mb-4">
+              <span>⚡</span>
             </div>
+            <h3 className="text-[1.15rem] font-bold text-[#0f172a]">Lightning Fast</h3>
+            <p className="text-[#64748b] text-[0.95rem] leading-relaxed">
+              No waiting for uploads. Instant results with optimized browser engines.
+            </p>
+          </div>
 
-            <div className="p-5 rounded-2xl bg-white/80 backdrop-blur-xs border border-slate-200/80 shadow-xs space-y-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <Zap className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-sm text-slate-900">Lightning Fast</h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Zero upload waiting times. Manipulate, merge, compress, and convert files near-instantaneously on your CPU.
-              </p>
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 mx-auto rounded-[16px] bg-[#fef2f2] text-[#dc2626] flex items-center justify-center text-3xl mb-4">
+              <span>🎁</span>
             </div>
-
-            <div className="p-5 rounded-2xl bg-white/80 backdrop-blur-xs border border-slate-200/80 shadow-xs space-y-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-sm text-slate-900">AI &amp; OCR Powered</h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Extract text from scanned invoices, receipts, and images in 8+ languages including English, Hindi, and Spanish.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-white/80 backdrop-blur-xs border border-slate-200/80 shadow-xs space-y-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <Star className="w-5 h-5" />
-              </div>
-              <h4 className="font-bold text-sm text-slate-900">Free Forever</h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                All 18 tools are completely free to use with zero hidden subscriptions, credit limits, or mandatory registrations.
-              </p>
-            </div>
+            <h3 className="text-[1.15rem] font-bold text-[#0f172a]">Completely Free</h3>
+            <p className="text-[#64748b] text-[0.95rem] leading-relaxed">
+              No limits, no watermarks, no registration required. Use as much as you want.
+            </p>
           </div>
         </div>
       </section>
     </div>
   );
 };
+

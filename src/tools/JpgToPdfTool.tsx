@@ -526,48 +526,51 @@ export const JpgToPdfTool: React.FC = () => {
                 </p>
               </div>
 
-              {/* Three Main Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
-                {/* 1. Camera Button */}
+              {/* Three Main Action Buttons with Color Grading and Interactive Effects */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                {/* 1. Camera Button - Red/Crimson Gradient with Shimmer & Glow */}
                 <button
                   type="button"
                   onClick={() => startCamera('environment')}
-                  className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-red-500 to-red-600 text-white shadow-md shadow-red-500/20 hover:from-red-600 hover:to-red-700 active:scale-[0.98] transition-all"
+                  className="group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br from-red-500 via-rose-600 to-red-700 text-white shadow-[0_6px_20px_rgba(220,38,38,0.35)] hover:shadow-[0_12px_28px_rgba(220,38,38,0.5)] hover:-translate-y-1.5 active:scale-95 transition-all duration-300 overflow-hidden cursor-pointer"
                   id="take-photo-btn"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white mb-2.5 group-hover:scale-110 transition-transform">
-                    <Camera className="w-6 h-6 stroke-[2.2]" />
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/25 text-white mb-3 group-hover:scale-115 group-hover:rotate-3 transition-transform shadow-inner">
+                    <Camera className="w-7 h-7 stroke-[2.2]" />
                   </div>
-                  <span className="font-bold text-sm">Take Photo</span>
-                  <span className="text-[11px] text-red-100 mt-0.5 font-medium">Use Camera</span>
+                  <span className="font-extrabold text-base tracking-tight text-white">Take Photo</span>
+                  <span className="text-[11px] text-red-100 mt-0.5 font-semibold bg-black/15 px-2 py-0.5 rounded-full">Use Camera</span>
                 </button>
 
-                {/* 2. Gallery Button */}
+                {/* 2. Gallery Button - Amber/Orange Gradient with Glow */}
                 <button
                   type="button"
                   onClick={() => galleryInputRef.current?.click()}
-                  className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-white border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50/30 text-slate-800 shadow-xs active:scale-[0.98] transition-all"
+                  className="group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 text-white shadow-[0_6px_20px_rgba(245,158,11,0.3)] hover:shadow-[0_12px_28px_rgba(245,158,11,0.45)] hover:-translate-y-1.5 active:scale-95 transition-all duration-300 overflow-hidden cursor-pointer"
                   id="choose-gallery-btn"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-2.5 group-hover:scale-110 transition-transform border border-amber-100">
-                    <ImageIcon className="w-6 h-6 stroke-[2.2]" />
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/25 text-white mb-3 group-hover:scale-115 group-hover:-rotate-3 transition-transform shadow-inner">
+                    <ImageIcon className="w-7 h-7 stroke-[2.2]" />
                   </div>
-                  <span className="font-bold text-sm text-slate-900">Choose from Gallery</span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 font-medium">Pick Photos</span>
+                  <span className="font-extrabold text-base tracking-tight text-white">Choose from Gallery</span>
+                  <span className="text-[11px] text-amber-100 mt-0.5 font-semibold bg-black/15 px-2 py-0.5 rounded-full">Pick Photos</span>
                 </button>
 
-                {/* 3. Upload File Button */}
+                {/* 3. Upload File Button - Blue/Indigo Gradient with Glow */}
                 <button
                   type="button"
                   onClick={() => uploadInputRef.current?.click()}
-                  className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-white border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50/30 text-slate-800 shadow-xs active:scale-[0.98] transition-all"
+                  className="group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-blue-700 text-white shadow-[0_6px_20px_rgba(59,130,246,0.3)] hover:shadow-[0_12px_28px_rgba(59,130,246,0.45)] hover:-translate-y-1.5 active:scale-95 transition-all duration-300 overflow-hidden cursor-pointer"
                   id="upload-image-btn"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 mb-2.5 group-hover:scale-110 transition-transform border border-blue-100">
-                    <UploadCloud className="w-6 h-6 stroke-[2.2]" />
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/25 text-white mb-3 group-hover:scale-115 group-hover:rotate-3 transition-transform shadow-inner">
+                    <UploadCloud className="w-7 h-7 stroke-[2.2]" />
                   </div>
-                  <span className="font-bold text-sm text-slate-900">Upload Image</span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 font-medium">Browse Files or Drop</span>
+                  <span className="font-extrabold text-base tracking-tight text-white">Upload Image</span>
+                  <span className="text-[11px] text-blue-100 mt-0.5 font-semibold bg-black/15 px-2 py-0.5 rounded-full">Browse Files or Drop</span>
                 </button>
               </div>
 
@@ -609,7 +612,7 @@ export const JpgToPdfTool: React.FC = () => {
               <button
                 type="button"
                 onClick={() => startCamera('environment')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition-colors border border-red-100"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 text-xs font-bold transition-all shadow-xs shadow-red-500/25 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
               >
                 <Camera className="w-3.5 h-3.5" />
                 <span>Take Another</span>
@@ -618,7 +621,7 @@ export const JpgToPdfTool: React.FC = () => {
               <button
                 type="button"
                 onClick={() => galleryInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-bold transition-colors border border-amber-100"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 text-xs font-bold transition-all shadow-xs shadow-amber-500/25 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
                 <span>Add Gallery</span>
@@ -627,7 +630,7 @@ export const JpgToPdfTool: React.FC = () => {
               <button
                 type="button"
                 onClick={() => uploadInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-bold transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 text-xs font-bold transition-all shadow-xs shadow-blue-500/25 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Upload More</span>
@@ -636,7 +639,7 @@ export const JpgToPdfTool: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setImages([])}
-                className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
                 title="Clear all images"
               >
                 <Trash2 className="w-4 h-4" />
@@ -876,19 +879,19 @@ export const JpgToPdfTool: React.FC = () => {
               type="button"
               disabled={processing || images.length === 0}
               onClick={handleConvert}
-              className="w-full inline-flex items-center justify-center gap-2.5 rounded-2xl bg-red-600 px-8 py-4 text-base font-bold text-white shadow-lg shadow-red-500/25 hover:bg-red-700 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[56px]"
+              className="w-full inline-flex items-center justify-center gap-2.5 rounded-2xl btn-gradient-primary btn-shimmer px-8 py-4.5 text-base sm:text-lg font-extrabold text-white shadow-[0_8px_25px_rgba(220,38,38,0.35)] hover:shadow-[0_12px_32px_rgba(220,38,38,0.5)] active:scale-[0.99] transition-all disabled:opacity-50 min-h-[60px] cursor-pointer"
               id="convert-image-to-pdf-btn"
             >
               {processing ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-6 h-6 animate-spin" />
                   <span>Converting {images.length} {images.length === 1 ? 'photo' : 'photos'} to PDF...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5" />
+                  <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
                   <span>Convert to PDF &amp; Download</span>
-                  <ArrowRight className="w-5 h-5 ml-1" />
+                  <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>

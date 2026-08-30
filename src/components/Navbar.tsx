@@ -11,15 +11,20 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { ToolId } from '../types';
 import { TOOLS_DATA } from '../data/toolsData';
+import { saveSearchQuery } from '../utils/searchHistory';
 
 interface NavbarProps {
   currentView: string;
   onNavigateHome: () => void;
   onNavigateTool: (toolId: ToolId) => void;
   onNavigatePage: (page: 'home' | 'about' | 'privacy') => void;
+  isDarkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -27,6 +32,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateHome,
   onNavigateTool,
   onNavigatePage,
+  isDarkMode = false,
+  onToggleDarkMode,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
@@ -42,6 +49,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     : TOOLS_DATA;
 
   const handleToolClick = (toolId: ToolId) => {
+    if (searchQuery.trim()) {
+      saveSearchQuery(searchQuery.trim());
+    }
     onNavigateTool(toolId);
     setToolsDropdownOpen(false);
     setConvertDropdownOpen(false);
@@ -59,14 +69,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center space-x-2.5 cursor-pointer group select-none"
             id="navbar-logo"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm shadow-red-500/20 group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-red-500 via-rose-600 to-red-700 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-md shadow-red-500/30 group-hover:scale-110 group-hover:shadow-[0_0_18px_rgba(220,38,38,0.45)] transition-all">
               <span>PDF</span>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 group-hover:text-red-600 transition-colors">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 group-hover:text-red-600 transition-colors">
                 PDFMaster<span className="text-red-600">Tools</span>
               </h1>
-              <span className="text-[10px] font-medium text-slate-400 -mt-1 hidden sm:block">
+              <span className="text-[10px] font-semibold text-slate-400 -mt-1 hidden sm:block">
                 Free &amp; In-Browser
               </span>
             </div>
@@ -76,10 +86,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <nav className="hidden lg:flex items-center space-x-1 font-medium text-sm text-slate-600">
             <button
               onClick={onNavigateHome}
-              className={`px-3.5 py-2 rounded-xl transition-colors ${
+              className={`px-3.5 py-2 rounded-xl transition-all duration-200 ${
                 currentView === 'home'
-                  ? 'text-red-600 bg-red-50/80 font-bold'
-                  : 'hover:text-red-600 hover:bg-white/60'
+                  ? 'text-white bg-gradient-to-r from-red-600 to-rose-600 font-bold shadow-xs shadow-red-500/25'
+                  : 'hover:text-red-600 hover:bg-red-50/60'
               }`}
               id="nav-home"
             >
@@ -260,31 +270,66 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Right Action: Privacy Badge & OCR Quick Highlight */}
-          <div className="hidden sm:flex items-center space-x-3">
+          {/* Right Action: Privacy Badge & OCR Quick Highlight & Dark Mode Toggle */}
+          <div className="hidden sm:flex items-center space-x-2.5">
             <button
               onClick={() => handleToolClick('pdf-ocr')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50/80 backdrop-blur-xs text-purple-700 border border-purple-200/80 text-xs font-bold hover:bg-purple-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-bold shadow-xs shadow-purple-500/25 hover:from-purple-600 hover:to-indigo-700 hover:shadow-md hover:shadow-purple-500/30 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>OCR</span>
+              <span>OCR AI</span>
             </button>
 
             <button
               onClick={() => onNavigatePage('privacy')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 backdrop-blur-xs text-emerald-700 border border-emerald-200/80 text-xs font-semibold hover:bg-emerald-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/80 text-xs font-bold hover:bg-gradient-to-r hover:from-emerald-500 hover:to-teal-600 hover:text-white hover:border-transparent hover:shadow-md hover:shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
             >
-              <Shield className="w-3.5 h-3.5" />
+              <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:text-white" />
               <span>Private &amp; Secure</span>
             </button>
+
+            {/* Dark Mode Toggle Button */}
+            {onToggleDarkMode && (
+              <button
+                type="button"
+                onClick={onToggleDarkMode}
+                className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-slate-100/90 dark:bg-slate-800/90 text-slate-700 dark:text-amber-300 hover:bg-white dark:hover:bg-slate-700/90 shadow-2xs hover:shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                title={isDarkMode ? 'Switch to Light Theme' : 'Switch to High-Contrast Dark Theme'}
+                aria-label="Toggle dark mode"
+                id="navbar-dark-mode-toggle"
+              >
+                {isDarkMode ? (
+                  <Sun className="w-4.5 h-4.5 text-amber-400 transition-transform hover:rotate-45" />
+                ) : (
+                  <Moon className="w-4.5 h-4.5 text-slate-700 transition-transform hover:-rotate-12" />
+                )}
+              </button>
+            )}
           </div>
 
-          {/* Mobile Hamburger Button */}
+          {/* Mobile Actions: Dark Mode Toggle & Hamburger Button */}
           <div className="flex lg:hidden items-center space-x-2">
+            {onToggleDarkMode && (
+              <button
+                type="button"
+                onClick={onToggleDarkMode}
+                className="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-amber-300 transition-colors flex items-center justify-center min-h-[44px] min-w-[44px] cursor-pointer"
+                aria-label="Toggle dark mode"
+                id="mobile-dark-mode-toggle"
+                title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              >
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5 text-amber-400" />
+                ) : (
+                  <Moon className="w-5 h-5 text-slate-700" />
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 rounded-xl text-slate-700 hover:bg-white/80 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="Toggle Menu"
               id="mobile-menu-toggle"
             >
@@ -395,6 +440,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               About Us
             </button>
+
+            {onToggleDarkMode && (
+              <button
+                type="button"
+                onClick={onToggleDarkMode}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-amber-300 border border-slate-200 dark:border-slate-700"
+              >
+                {isDarkMode ? (
+                  <>
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Light Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-3.5 h-3.5 text-slate-700" />
+                    <span>Dark Mode</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => {
                 onNavigatePage('privacy');
@@ -402,7 +468,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className="text-xs font-bold text-emerald-600 hover:underline"
             >
-              100% Privacy Guarantee
+              Privacy
             </button>
           </div>
         </div>

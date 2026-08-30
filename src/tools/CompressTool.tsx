@@ -171,7 +171,7 @@ export const CompressTool: React.FC = () => {
               type="button"
               disabled={processing}
               onClick={handleProcess}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[52px]"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl btn-gradient-emerald btn-shimmer px-6 py-4.5 text-base font-bold text-white shadow-lg shadow-emerald-600/25 active:scale-[0.99] transition-all disabled:opacity-50 min-h-[56px] cursor-pointer"
               id="start-compress-button"
             >
               {processing ? (
@@ -182,7 +182,7 @@ export const CompressTool: React.FC = () => {
               ) : (
                 <>
                   <span>Compress PDF Now</span>
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>

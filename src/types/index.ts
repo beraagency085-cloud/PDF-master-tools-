@@ -27,6 +27,8 @@ export interface ToolDefinition {
   description: string;
   category: ToolCategory;
   badge?: string;
+  top?: boolean;
+  emoji?: string;
   iconName: string;
   color: string;
   acceptedFileTypes: string[];

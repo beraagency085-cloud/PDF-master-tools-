@@ -120,25 +120,25 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           </div>
         </div>
 
-        {/* Primary Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+        {/* Primary Action Buttons with Color Grading and Effects */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
           <button
             type="button"
             onClick={handleDownload}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl bg-red-600 px-8 py-4 text-base font-bold text-white shadow-md shadow-red-500/20 hover:bg-red-700 active:scale-[0.98] transition-all min-h-[52px]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl btn-gradient-primary btn-shimmer px-9 py-4.5 text-base sm:text-lg font-extrabold text-white shadow-[0_8px_25px_rgba(220,38,38,0.35)] hover:shadow-[0_12px_32px_rgba(220,38,38,0.5)] active:scale-[0.98] transition-all min-h-[56px] cursor-pointer"
             id="download-result-button"
           >
-            <Download className="w-5 h-5 stroke-[2.5]" />
+            <Download className="w-5 h-5 stroke-[2.8] group-hover:translate-y-0.5 transition-transform" />
             Download {getDownloadLabel()}
           </button>
 
           <button
             type="button"
             onClick={onReset}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-white/80 backdrop-blur-xs px-6 py-4 text-sm font-bold text-slate-700 hover:bg-white active:scale-[0.98] transition-all min-h-[52px] border border-slate-200/90 shadow-2xs"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-50 to-white hover:from-white hover:to-slate-100/90 px-7 py-4.5 text-sm sm:text-base font-bold text-slate-700 hover:text-slate-900 active:scale-[0.98] transition-all min-h-[56px] border-2 border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md cursor-pointer"
             id="process-another-button"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4 text-slate-500" />
             Process Another File
           </button>
         </div>

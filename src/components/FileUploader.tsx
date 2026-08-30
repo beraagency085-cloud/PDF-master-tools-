@@ -133,7 +133,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-xl bg-red-600 px-6 py-3 text-sm sm:text-base font-semibold text-white shadow-md shadow-red-500/20 hover:bg-red-700 active:scale-[0.98] transition-all min-h-[44px]"
+            className="inline-flex items-center justify-center rounded-xl btn-gradient-primary btn-shimmer px-7 py-3.5 text-sm sm:text-base font-bold text-white shadow-lg shadow-red-500/25 active:scale-[0.98] transition-all min-h-[46px] cursor-pointer"
             id="choose-files-button"
           >
             <Plus className="w-5 h-5 mr-2" />
