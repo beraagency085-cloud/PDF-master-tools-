@@ -5,6 +5,8 @@ import { ToolLayout } from './components/ToolLayout';
 import { HomePage } from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { ContactPage } from './pages/ContactPage';
+import { TermsPage } from './pages/TermsPage';
 import { ToolId, ToolDefinition } from './types';
 import { TOOLS_DATA } from './data/toolsData';
 
@@ -59,22 +61,53 @@ export default function App() {
     setIsDarkMode((prev) => !prev);
   };
 
-  // Scroll to top on view changes
+  const selectedTool: ToolDefinition | undefined = TOOLS_DATA.find(
+    (t) => t.id === currentView
+  );
+
+  // Dynamic SEO Title and Meta Description update on view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentView]);
+
+    let title = 'PDFMaster Tools — Free, Fast & Secure Online PDF Utility';
+    let description =
+      'Free online PDF tools: Compress, Merge, Split, Convert PDF to Word/Excel/JPG, Rotate, Protect, Unlock, Watermark, and OCR in your browser. 100% private, 0s retention.';
+
+    if (selectedTool) {
+      title = `${selectedTool.title} Free Online — PDFMaster Tools`;
+      description = selectedTool.seo.metaDescription || selectedTool.description;
+    } else if (currentView === 'about') {
+      title = 'About Us & Zero-Knowledge Architecture — PDFMaster Tools';
+      description =
+        'Learn how PDFMaster Tools processes documents 100% client-side with WebAssembly. No server storage, zero data leaks, operated by Bera Agency.';
+    } else if (currentView === 'privacy') {
+      title = 'Privacy Policy & Zero Server Storage Guarantee — PDFMaster Tools';
+      description =
+        'Our strict privacy policy: 0s server retention, instant local memory purging, no cloud storage, and zero AI model training on user documents.';
+    } else if (currentView === 'contact') {
+      title = 'Contact Support & Ownership Details — PDFMaster Tools';
+      description =
+        'Get in touch with the PDFMaster Tools engineering and support team at Bera Agency / 2BD Network. SLA response within 12–24 hours.';
+    } else if (currentView === 'terms') {
+      title = 'Terms of Service & Fair Use — PDFMaster Tools';
+      description =
+        'Terms of service and fair use guidelines for PDFMaster Tools. Client-side processing, intellectual property protection, and warranty terms.';
+    }
+
+    document.title = title;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute('content', description);
+    }
+  }, [currentView, selectedTool]);
 
   const handleSelectTool = (toolId: ToolId) => {
     setCurrentView(toolId);
   };
 
-  const handleNavigate = (page: string) => {
+  const handleNavigate = (page: 'home' | 'about' | 'contact' | 'privacy' | 'terms') => {
     setCurrentView(page);
   };
-
-  const selectedTool: ToolDefinition | undefined = TOOLS_DATA.find(
-    (t) => t.id === currentView
-  );
 
   const renderToolComponent = (id: string) => {
     switch (id) {
@@ -133,7 +166,7 @@ export default function App() {
         currentView={currentView}
         onNavigateHome={() => setCurrentView('home')}
         onNavigateTool={handleSelectTool}
-        onNavigatePage={(page) => setCurrentView(page)}
+        onNavigatePage={handleNavigate}
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
       />
@@ -143,7 +176,7 @@ export default function App() {
         {currentView === 'home' && (
           <HomePage
             onSelectTool={handleSelectTool}
-            onNavigatePage={(p) => setCurrentView(p)}
+            onNavigatePage={handleNavigate}
           />
         )}
 
@@ -151,11 +184,26 @@ export default function App() {
           <AboutPage
             onBackToHome={() => setCurrentView('home')}
             onSelectTool={handleSelectTool}
+            onNavigatePage={handleNavigate}
+          />
+        )}
+
+        {currentView === 'contact' && (
+          <ContactPage
+            onBackToHome={() => setCurrentView('home')}
+            onSelectTool={handleSelectTool}
           />
         )}
 
         {currentView === 'privacy' && (
           <PrivacyPage onBackToHome={() => setCurrentView('home')} />
+        )}
+
+        {currentView === 'terms' && (
+          <TermsPage
+            onBackToHome={() => setCurrentView('home')}
+            onSelectTool={handleSelectTool}
+          />
         )}
 
         {selectedTool && (
@@ -172,7 +220,7 @@ export default function App() {
       {/* Comprehensive Footer */}
       <Footer
         onNavigateTool={handleSelectTool}
-        onNavigatePage={(page) => setCurrentView(page)}
+        onNavigatePage={handleNavigate}
       />
     </div>
   );

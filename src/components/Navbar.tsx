@@ -22,7 +22,7 @@ interface NavbarProps {
   currentView: string;
   onNavigateHome: () => void;
   onNavigateTool: (toolId: ToolId) => void;
-  onNavigatePage: (page: 'home' | 'about' | 'privacy') => void;
+  onNavigatePage: (page: 'home' | 'about' | 'contact' | 'privacy' | 'terms') => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
 }
@@ -259,14 +259,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                 setToolsDropdownOpen(false);
                 setConvertDropdownOpen(false);
               }}
-              className={`px-3.5 py-2 rounded-xl transition-colors ${
+              className={`px-3 py-2 rounded-xl transition-colors cursor-pointer ${
                 currentView === 'about'
-                  ? 'text-red-600 bg-red-50/80 font-bold'
+                  ? 'text-red-600 bg-red-50 font-bold'
                   : 'hover:text-red-600 hover:bg-white/60'
               }`}
               id="nav-about"
             >
               About
+            </button>
+
+            <button
+              onClick={() => {
+                onNavigatePage('contact');
+                setToolsDropdownOpen(false);
+                setConvertDropdownOpen(false);
+              }}
+              className={`px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                currentView === 'contact'
+                  ? 'text-red-600 bg-red-50 font-bold'
+                  : 'hover:text-red-600 hover:bg-white/60'
+              }`}
+              id="nav-contact"
+            >
+              Contact
             </button>
           </nav>
 
@@ -430,45 +446,45 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-2 gap-2">
             <button
               onClick={() => {
                 onNavigatePage('about');
                 setMobileMenuOpen(false);
               }}
-              className="text-xs font-bold text-slate-600 hover:text-red-600"
+              className="text-left py-1.5 text-xs font-bold text-slate-700 hover:text-red-600"
             >
               About Us
             </button>
 
-            {onToggleDarkMode && (
-              <button
-                type="button"
-                onClick={onToggleDarkMode}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-amber-300 border border-slate-200 dark:border-slate-700"
-              >
-                {isDarkMode ? (
-                  <>
-                    <Sun className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Light Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="w-3.5 h-3.5 text-slate-700" />
-                    <span>Dark Mode</span>
-                  </>
-                )}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                onNavigatePage('contact');
+                setMobileMenuOpen(false);
+              }}
+              className="text-left py-1.5 text-xs font-bold text-red-600 hover:underline"
+            >
+              Contact &amp; Support
+            </button>
 
             <button
               onClick={() => {
                 onNavigatePage('privacy');
                 setMobileMenuOpen(false);
               }}
-              className="text-xs font-bold text-emerald-600 hover:underline"
+              className="text-left py-1.5 text-xs font-bold text-emerald-600 hover:underline"
             >
-              Privacy
+              Privacy Policy
+            </button>
+
+            <button
+              onClick={() => {
+                onNavigatePage('terms');
+                setMobileMenuOpen(false);
+              }}
+              className="text-left py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900"
+            >
+              Terms of Service
             </button>
           </div>
         </div>
