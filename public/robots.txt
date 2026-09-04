@@ -1,0 +1,6 @@
+# robots.txt for https://www.pdftools.2bd.net
+User-agent: *
+Allow: /
+
+# Direct sitemap index for search crawlers
+Sitemap: https://www.pdftools.2bd.net/sitemap.xml

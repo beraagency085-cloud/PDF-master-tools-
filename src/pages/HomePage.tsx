@@ -136,39 +136,55 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
         ['protect-pdf', 'unlock-pdf', 'watermark-pdf', 'page-numbers'].includes(tool.id)) ||
       (activeCategory === 'ocr' && ['pdf-ocr', 'pdf-to-word'].includes(tool.id));
 
-    // Search query match
+    // Dual-Language Search query match (English + Bengali + Keywords)
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return matchCat;
+
     const matchSearch =
-      tool.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tool.description.toLowerCase().includes(searchQuery.toLowerCase());
+      tool.title.toLowerCase().includes(q) ||
+      tool.shortTitle.toLowerCase().includes(q) ||
+      tool.description.toLowerCase().includes(q) ||
+      (tool.banglaTitle && tool.banglaTitle.toLowerCase().includes(q)) ||
+      (tool.banglaDescription && tool.banglaDescription.toLowerCase().includes(q)) ||
+      (tool.keywords && tool.keywords.some((k) => k.toLowerCase().includes(q))) ||
+      (tool.banglaKeywords && tool.banglaKeywords.some((bk) => bk.toLowerCase().includes(q)));
 
     return matchCat && matchSearch;
   });
 
-  // Real FAQs
+  // Real FAQs (Bilingual Optimized for Google Search)
   const homeFaqs = [
     {
-      q: 'Are my files uploaded or stored on any server?',
-      a: 'No. Never. PDFMaster Tools is built entirely on WebAssembly and client-side JavaScript. When you select or drop a document, all processing is computed directly in your browser memory (RAM). Zero bytes are transmitted to any remote cloud server.',
+      q: 'পিডিএফ সাইজ কমানোর সহজ উপায় কি? (How to compress PDF file size free?)',
+      a: 'আমাদের "Compress PDF" টুলে আপনার ফাইলটি ড্রপ করুন, পছন্দমতো কম্প্রেশন লেভেল (Extreme, Recommended, বা Low) বেছে নিন এবং সেকেন্ডের মধ্যে গুণগত মান ঠিক রেখে ছোট সাইজের পিডিএফ ডাউনলোড করে নিন।',
     },
     {
-      q: 'What is your file deletion time policy?',
-      a: 'Because we never store or upload your files to our server disks, retention time is exactly 0 seconds. Once you close or reload the browser tab, or click "Process Another File", the local RAM buffer is immediately cleared.',
+      q: 'একাধিক পিডিএফ ফাইল জোড়া লাগাবো কিভাবে? (How to merge multiple PDFs into one?)',
+      a: 'আমাদের "Merge PDF" টুলে গিয়ে একসাথে একাধিক ফাইল আপলোড করুন, মাউস বা টাচ দিয়ে ড্র্যাগ করে আগে-পিছে সাজিয়ে নিন এবং "Merge PDFs" এ চাপ দিলেই সবগুলো ফাইল একত্র হয়ে একটি নতুন পিডিএফে পরিণত হবে।',
+    },
+    {
+      q: 'ছবি বা মোবাইল ক্যামেরা দিয়ে তোলা ফটো থেকে পিডিএফ তৈরি করার নিয়ম কি?',
+      a: '"Image to PDF" টুলের মাধ্যমে মোবাইল ক্যামেরা দিয়ে সরাসরি ডকুমেন্টের ছবি তুলতে পারেন অথবা ফোন বা কম্পিউটারের গ্যালারি থেকে JPG, PNG ও WEBP ছবি সিলেক্ট করে এক ক্লিকে স্পষ্ট পিডিএফ ফাইল তৈরি করতে পারেন।',
+    },
+    {
+      q: 'Are my files uploaded or stored on any server? (আমার ফাইল কি সার্ভারে আপলোড হয়?)',
+      a: 'না, কখনো নয়। PDFMaster Tools সম্পূর্ণ ক্লায়েন্ট-সাইড WebAssembly প্রযুক্তিতে চলে। আপনার নির্বাচিত প্রতিটি ডকুমেন্ট সরাসরি আপনার ডিভাইসের ব্রাউজার মেমোরিতে (RAM) প্রসেস হয়। রিমোট ক্লাউড সার্ভারে ১ বাইট তথ্যও যায় না।',
+    },
+    {
+      q: 'What is your file deletion time policy? (ফাইল ডিলিট পলিসি কি?)',
+      a: 'যেহেতু কোনো ফাইল আমাদের সার্ভার হার্ডডিস্কে কখনোই সেভ বা আপলোড হয় না, তাই ফাইল রিটেনশন সময় ঠিক ০ সেকেন্ড। আপনি ব্রাউজার ট্যাব বন্ধ করলে বা নতুন কাজ শুরু করলেই লোকাল র‍্যাম সম্পূর্ণ পরিষ্কার হয়ে যায়।',
+    },
+    {
+      q: 'পিডিএফ ফাইল থেকে ওয়ার্ড ডকুমেন্টে কনভার্ট করলে কি এডিট করা যাবে?',
+      a: 'হ্যাঁ, আমাদের "PDF to Word" কনভার্টারের মাধ্যমে তৈরি হওয়া .docx ফাইলটি মাইক্রোসফট ওয়ার্ড বা গুগল ডকসে সরাসরি ওপেন করে যেকোনো প্যারাগ্রাফ, লাইন বা টেক্সট স্বাধীনভাবে এডিট করা যায়।',
     },
     {
       q: 'Do you use my documents to train AI or machine learning models?',
-      a: 'Strictly NO. We have an explicit Zero-AI-Training guarantee. Your confidential contracts, financial statements, taxes, and medical records are never inspected, stored, or fed into any AI training dataset.',
+      a: 'কখনোই না। আমাদের কঠোর Zero-AI-Training গ্যারান্টি রয়েছে। আপনার ব্যক্তিগত চুক্তিপত্র, ব্যাংক স্টেটমেন্ট, মেডিকেল হিস্ট্রি বা আইনি নথিপত্র কখনোই কোনো কৃত্রিম বুদ্ধিমত্তা বা মেশিন লার্নিং মডেলে ব্যবহৃত হয় না।',
     },
     {
-      q: 'Is PDFMaster Tools really 100% free with no watermarks?',
-      a: 'Yes. Every tool is 100% free, unlimited, and requires no account creation, credit card, or email sign-up. Output files never contain watermarks.',
-    },
-    {
-      q: 'What file size limits and formats are supported?',
-      a: 'We support PDF, JPG, PNG, DOCX (Word), and XLSX (Excel). Because processing happens directly using your local device CPU and RAM, you can comfortably process documents up to 100MB+ in under 2 seconds without upload lag.',
-    },
-    {
-      q: 'Is it safe to use for sensitive legal and financial documents?',
-      a: 'Yes. In fact, client-side processing is far safer than traditional cloud converters because your private data never leaves your computer or phone. Even in the event of an external network failure, your data remains secure in your browser.',
+      q: 'Is PDFMaster Tools really 100% free with no watermark or limits?',
+      a: 'হ্যাঁ! আমাদের প্রতিটি টুল ১০০% ফ্রি, কোনো প্রকার ওয়াটারমার্ক বা হিডেন লিমিটেশন ছাড়া। কোনো রেজিস্ট্রেশন বা অ্যাকাউন্ট ছাড়াই যেকোনো ডিভাইসে নিশ্চিন্তে ব্যবহার করা যায়।',
     },
   ];
 
@@ -502,7 +518,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
               <div
                 key={tool.id}
                 onClick={() => handleSelectToolWithHistory(tool.id)}
-                className={`group relative rounded-3xl p-6 cursor-pointer overflow-hidden transition-all duration-200 transform hover:-translate-y-1.5 flex flex-col justify-between ${
+                className={`group relative rounded-3xl p-6 cursor-pointer overflow-hidden transition-all duration-200 transform hover:-translate-y-1.5 flex flex-col justify-between group-hover:shadow-[0_0_20px_rgba(220,38,38,0.3)] ${
                   isFeatured
                     ? 'bg-white border-2 border-red-500/80 shadow-md hover:shadow-xl hover:border-red-600'
                     : 'bg-white border border-slate-200/90 shadow-xs hover:border-red-400 hover:shadow-lg'
@@ -528,9 +544,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="text-base font-bold text-slate-900 mb-1.5 group-hover:text-red-600 transition-colors">
+                  <h3 className="text-base font-bold text-slate-900 mb-0.5 group-hover:text-red-600 transition-colors">
                     {tool.title}
                   </h3>
+                  {tool.banglaTitle && (
+                    <p className="text-[11px] font-semibold text-red-600/90 mb-1.5 flex items-center gap-1">
+                      <span>🇧🇩</span>
+                      <span>{tool.banglaTitle}</span>
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2">
                     {tool.description}
                   </p>
@@ -826,6 +848,257 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
           </div>
         </div>
       )}
+
+      {/* 8.5 DUAL-LANGUAGE SEO GUIDE & DIRECTORY SECTION */}
+      <section className="py-16 px-4 sm:px-6 bg-slate-50/80 border-t border-slate-200/90" id="seo-guide">
+        <div className="max-w-6xl mx-auto space-y-12">
+          {/* Section Header */}
+          <div className="text-center space-y-3 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 text-red-600 bg-red-50 px-3.5 py-1 rounded-full text-xs font-bold border border-red-100">
+              <span>🇧🇩 🌍 সব ধরণের পিডিএফ সমাধান</span>
+              <span>• Complete Bilingual PDF Directory</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
+              অনলাইন পিডিএফ এডিটর ও কনভার্টার গাইড (Online PDF Suite)
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              যেকোনো পিডিএফ ফাইল সাইজ কমানো, জোড়া লাগানো, আলাদা করা, ছবি থেকে পিডিএফ রূপান্তর কিংবা স্ক্যান কপি থেকে বাংলা ও ইংরেজি টেক্সট বের করার ১০০% নিরাপদ ও ফ্রি মাধ্যম।
+            </p>
+          </div>
+
+          {/* Core Bilingual Keyword Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Card 1: Compress PDF */}
+            <article className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🗜️</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      পিডিএফ সাইজ কমানো (Compress PDF)
+                    </h3>
+                    <span className="text-[11px] font-semibold text-emerald-600">Reduce PDF File Size Online</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  ইমেইল, চাকরির আবেদন বা সরকারি পোর্টালে আপলোডের জন্য পিডিএফ ফাইলের গুণগত মান অক্ষুণ্ণ রেখে সাইজ ১০০KB, ২০০KB বা ৫০০KB এর নিচে ছোট করুন। কোনো ক্লাউড আপলোড ছাড়াই দ্রুততম সময়ে কম্প্রেশন সম্পন্ন হয়।
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">পিডিএফ ছোট করা</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">pdf size reducer</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">free compress online</span>
+                </div>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleSelectToolWithHistory('compress-pdf')}
+                  className="w-full py-2.5 rounded-xl bg-red-50 hover:bg-red-600 text-red-600 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>পিডিএফ সাইজ কমান</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </article>
+
+            {/* Card 2: Merge PDF */}
+            <article className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">📑</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      পিডিএফ জোড়া লাগানো (Merge PDF)
+                    </h3>
+                    <span className="text-[11px] font-semibold text-indigo-600">Combine Multiple PDF Files</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  একাধিক পৃথক পিডিএফ ডকুমেন্টকে ক্রমানুসারে সাজিয়ে একটি একক ফাইলে যুক্ত করুন। ড্র্যাগ অ্যান্ড ড্রপ করে পৃষ্ঠার ক্রম ঠিক করুন এবং সেকেন্ডের মধ্যে মার্জ করা পিডিএফ ডাউনলোড করুন।
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">পিডিএফ একত্র করা</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">pdf combiner free</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">pdf jora lagano</span>
+                </div>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleSelectToolWithHistory('merge-pdf')}
+                  className="w-full py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>পিডিএফ জোড়া লাগান</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </article>
+
+            {/* Card 3: Image to PDF */}
+            <article className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🖼️</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      ছবি থেকে পিডিএফ (Image to PDF)
+                    </h3>
+                    <span className="text-[11px] font-semibold text-amber-600">JPG, PNG, Camera to PDF</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  মোবাইল ক্যামেরা দিয়ে সরাসরি কোনো কাগজের ছবি তুলে অথবা গ্যালারি থেকে JPG, PNG ও WEBP ছবি সিলেক্ট করে মুহূর্তের মধ্যে ক্লিয়ার A4 সাইজের পিডিএফ ডকুমেন্টে রূপান্তর করুন।
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">জেপিজি থেকে পিডিএফ</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">ছবি পিডিএফ বানাবো কিভাবে</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">chobi theke pdf</span>
+                </div>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleSelectToolWithHistory('jpg-to-pdf')}
+                  className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-600 text-amber-600 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>ছবি কনভার্ট করুন</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </article>
+
+            {/* Card 4: PDF to Word */}
+            <article className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">📝</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      পিডিএফ থেকে ওয়ার্ড (PDF to Word)
+                    </h3>
+                    <span className="text-[11px] font-semibold text-blue-600">Convert PDF to Editable DOCX</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  যেকোনো পিডিএফ ফাইলকে সহজে এডিটযোগ্য মাইক্রোসফট ওয়ার্ড (.docx) ফাইলে কনভার্ট করুন। ফন্ট, প্যারাগ্রাফ ও ফরম্যাটিং ঠিক রেখে সরাসরি ওয়ার্ড বা গুগল ডকসে এডিট করুন।
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">পিডিএফ টু ওয়ার্ড</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">বাংলা পিডিএফ ওয়ার্ড কনভার্টার</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">pdf to docx</span>
+                </div>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleSelectToolWithHistory('pdf-to-word')}
+                  className="w-full py-2.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>ওয়ার্ডে কনভার্ট করুন</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </article>
+
+            {/* Card 5: Split PDF */}
+            <article className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">✂️</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      পিডিএফ আলাদা করা (Split PDF)
+                    </h3>
+                    <span className="text-[11px] font-semibold text-cyan-600">Extract & Separate Pages</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  বড় কোনো পিডিএফ বই বা ফাইল থেকে প্রয়োজনীয় পেজগুলো আলাদা করুন অথবা প্রতি পৃষ্ঠাকে আলাদা আলাদা পিডিএফে ভাগ করুন। পেজ রেঞ্জ (যেমন ১-৫, ৬-১০) দিয়ে সহজে সেভ করুন।
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">পিডিএফ পেজ কাটা</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">split pdf online free</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">pdf alada kora</span>
+                </div>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleSelectToolWithHistory('split-pdf')}
+                  className="w-full py-2.5 rounded-xl bg-cyan-50 hover:bg-cyan-600 text-cyan-600 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>পিডিএফ আলাদা করুন</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </article>
+
+            {/* Card 6: OCR PDF */}
+            <article className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🔍</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      পিডিএফ ওসিআর (OCR Text Extractor)
+                    </h3>
+                    <span className="text-[11px] font-semibold text-purple-600">বাংলা ও ইংরেজি টেক্সট এক্সট্রাক্ট</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  স্ক্যান করা বই, ডকুমেন্ট বা কাগজের ছবি থেকে বাংলা ও ইংরেজি লেখা হুবহু ডিজিটাল টেক্সটে রূপান্তর করুন। এক ক্লিকে টেক্সট কপি করুন বা ওয়ার্ড ফাইলে সংরক্ষণ করুন।
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">বাংলা ওসিআর</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">ছবি থেকে লেখা বের করা</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">scanned pdf to text</span>
+                </div>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleSelectToolWithHistory('pdf-ocr')}
+                  className="w-full py-2.5 rounded-xl bg-purple-50 hover:bg-purple-600 text-purple-600 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>ওসিআর টেক্সট বের করুন</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </article>
+          </div>
+
+          {/* Educational Authority Block: Why PDFMaster Tools Ranks #1 */}
+          <div className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-xs space-y-6">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-red-600" />
+              <span>কেন PDFMaster Tools গুগলের সেরা নির্ভরযোগ্য ফ্রি পিডিএফ টুল?</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs sm:text-sm text-slate-600 leading-relaxed">
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-extrabold">✓</span> ১০০% ক্লায়েন্ট-সাইড প্রসেসিং
+                </h4>
+                <p>
+                  অন্যান্য কনভার্টারের মতো আপনার গোপনীয় ফাইল কোনো দূরবর্তী সার্ভারে আপলোড হয় না। WebAssembly প্রযুক্তির মাধ্যমে সব কাজ আপনার নিজস্ব ব্রাউজারেই সম্পন্ন হয়।
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-extrabold">✓</span> কোনো রেজিস্ট্রেশন বা চার্জ নেই
+                </h4>
+                <p>
+                  কোনো ক্রেডিট কার্ড, অ্যাকাউন্ট তৈরি বা সাবস্ক্রিপশন ছাড়াই সকল ১৮+ টুল সীমাহীনভাবে ব্যবহারযোগ্য। ফাইলে কোনো অনাকাঙ্ক্ষিত ওয়াটারমার্ক বসানো হয় না।
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <span className="text-emerald-600 font-extrabold">✓</span> জিরো ডেটা স্টোরেজ ও এআই ট্রেইনিং মুক্ত
+                </h4>
+                <p>
+                  আপনার ফাইল সার্ভার ডিস্কে ০ সেকেন্ড অবস্থান করে। আপনার ব্যক্তিগত ও ব্যবসায়িক নথিপত্র কখনোই কোনো এআই মডেলকে ট্রেইন করতে ব্যবহৃত হয় না।
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* 9. REAL FAQ ACCORDION SECTION */}
       <section className="bg-white border-t border-slate-200/90 py-16 px-4 sm:px-6" id="faq">

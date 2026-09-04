@@ -25,6 +25,10 @@ export interface ToolDefinition {
   title: string;
   shortTitle: string;
   description: string;
+  banglaTitle?: string;
+  banglaDescription?: string;
+  keywords?: string[];
+  banglaKeywords?: string[];
   category: ToolCategory;
   badge?: string;
   top?: boolean;

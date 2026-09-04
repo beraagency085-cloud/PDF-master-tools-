@@ -9,13 +9,17 @@ const MAX_HISTORY_ITEMS = 10;
 
 export const POPULAR_SEARCH_TERMS = [
   'Compress PDF',
-  'JPG to PDF',
+  'পিডিএফ সাইজ কমানো',
+  'Image to PDF',
+  'ছবি থেকে পিডিএফ',
   'Merge PDF',
-  'OCR Text',
+  'পিডিএফ জোড়া লাগানো',
   'PDF to Word',
+  'পিডিএফ থেকে ওয়ার্ড',
+  'OCR Text',
+  'বাংলা ওসিআর',
   'Protect PDF',
-  'Rotate PDF',
-  'Split PDF',
+  'পিডিএফ পাসওয়ার্ড',
 ];
 
 export function getSearchHistory(): SearchHistoryItem[] {

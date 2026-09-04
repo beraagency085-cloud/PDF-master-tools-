@@ -61,52 +61,117 @@ export default function App() {
     setIsDarkMode((prev) => !prev);
   };
 
+  // Sync with URL hash for direct deep links and crawler indexability
+  useEffect(() => {
+    const parseHash = () => {
+      const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+      if (rawHash) {
+        const isTool = TOOLS_DATA.some((t) => t.id === rawHash);
+        const isPage = ['about', 'privacy', 'contact', 'terms'].includes(rawHash);
+        if (isTool || isPage) {
+          setCurrentView(rawHash);
+          return;
+        }
+      }
+      if (!rawHash) {
+        setCurrentView('home');
+      }
+    };
+
+    parseHash();
+    window.addEventListener('hashchange', parseHash);
+    return () => window.removeEventListener('hashchange', parseHash);
+  }, []);
+
   const selectedTool: ToolDefinition | undefined = TOOLS_DATA.find(
     (t) => t.id === currentView
   );
 
-  // Dynamic SEO Title and Meta Description update on view changes
+  // Dynamic SEO Title, Meta Description, Keywords, and Canonical URL update on view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    let title = 'PDFMaster Tools — Free, Fast & Secure Online PDF Utility';
+    let title = 'PDFMaster Tools — Free Online PDF Tools | পিডিএফ সাইজ কমানো, জোড়া লাগানো ও কনভার্টার';
     let description =
-      'Free online PDF tools: Compress, Merge, Split, Convert PDF to Word/Excel/JPG, Rotate, Protect, Unlock, Watermark, and OCR in your browser. 100% private, 0s retention.';
+      'Free online PDF tools: Compress, Merge, Split, Convert PDF to Word/Excel/JPG, Rotate, Protect, Unlock, Watermark, and OCR in your browser. পিডিএফ সাইজ কমানো, একত্র করা ও কনভার্ট করার ১০০% ফ্রি টুল। 100% private, 0s retention.';
+    let keywords =
+      'free pdf tools, compress pdf, merge pdf, split pdf, jpg to pdf, pdf to word, ocr pdf, পিডিএফ সাইজ কমানো, পিডিএফ কম্প্রেস, পিডিএফ জোড়া লাগানো, ছবি থেকে পিডিএফ, pdf size komano';
+    let canonicalUrl = 'https://www.pdftools.2bd.net/';
 
     if (selectedTool) {
-      title = `${selectedTool.title} Free Online — PDFMaster Tools`;
+      const bnTitle = selectedTool.banglaTitle ? ` (${selectedTool.banglaTitle})` : '';
+      title = `${selectedTool.title}${bnTitle} Free Online | PDFMaster Tools`;
       description = selectedTool.seo.metaDescription || selectedTool.description;
+      const toolKeywords = [
+        ...(selectedTool.keywords || []),
+        ...(selectedTool.banglaKeywords || []),
+      ].join(', ');
+      if (toolKeywords) {
+        keywords = `${toolKeywords}, pdf tools, free online pdf`;
+      }
+      canonicalUrl = `https://www.pdftools.2bd.net/#${selectedTool.id}`;
     } else if (currentView === 'about') {
       title = 'About Us & Zero-Knowledge Architecture — PDFMaster Tools';
       description =
         'Learn how PDFMaster Tools processes documents 100% client-side with WebAssembly. No server storage, zero data leaks, operated by Bera Agency.';
+      canonicalUrl = 'https://www.pdftools.2bd.net/#about';
     } else if (currentView === 'privacy') {
       title = 'Privacy Policy & Zero Server Storage Guarantee — PDFMaster Tools';
       description =
         'Our strict privacy policy: 0s server retention, instant local memory purging, no cloud storage, and zero AI model training on user documents.';
+      canonicalUrl = 'https://www.pdftools.2bd.net/#privacy';
     } else if (currentView === 'contact') {
       title = 'Contact Support & Ownership Details — PDFMaster Tools';
       description =
         'Get in touch with the PDFMaster Tools engineering and support team at Bera Agency / 2BD Network. SLA response within 12–24 hours.';
+      canonicalUrl = 'https://www.pdftools.2bd.net/#contact';
     } else if (currentView === 'terms') {
       title = 'Terms of Service & Fair Use — PDFMaster Tools';
       description =
         'Terms of service and fair use guidelines for PDFMaster Tools. Client-side processing, intellectual property protection, and warranty terms.';
+      canonicalUrl = 'https://www.pdftools.2bd.net/#terms';
     }
 
+    // Document Title
     document.title = title;
+
+    // Meta Description
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.setAttribute('content', description);
     }
+
+    // Meta Keywords
+    const metaKw = document.querySelector('meta[name="keywords"]');
+    if (metaKw) {
+      metaKw.setAttribute('content', keywords);
+    }
+
+    // Canonical Link
+    const canonicalLink = document.querySelector('link[rel="canonical"]');
+    if (canonicalLink) {
+      canonicalLink.setAttribute('href', canonicalUrl);
+    }
+
+    // OpenGraph Tags
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', title);
+
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', description);
+
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', canonicalUrl);
   }, [currentView, selectedTool]);
 
   const handleSelectTool = (toolId: ToolId) => {
     setCurrentView(toolId);
+    window.location.hash = `#${toolId}`;
   };
 
   const handleNavigate = (page: 'home' | 'about' | 'contact' | 'privacy' | 'terms') => {
     setCurrentView(page);
+    window.location.hash = page === 'home' ? '' : `#${page}`;
   };
 
   const renderToolComponent = (id: string) => {
