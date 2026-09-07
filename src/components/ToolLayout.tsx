@@ -277,6 +277,9 @@ export const ToolLayout: React.FC<ToolLayoutProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Sponsored Partner Offers */}
+        <AdSlot format="smartlink" className="mt-8" />
       </div>
     </div>
   );

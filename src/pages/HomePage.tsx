@@ -29,6 +29,7 @@ import {
 import { ToolDefinition, ToolId } from '../types';
 import { TOOLS_DATA, CATEGORIES } from '../data/toolsData';
 import { GUIDES_DATA, GuideArticle } from '../data/guidesData';
+import { AdBanner468x60, NativeBannerAd, SmartlinkBanner } from '../components/AdSlot';
 import {
   SearchHistoryItem,
   getSearchHistory,
@@ -481,6 +482,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
         </div>
       </section>
 
+      {/* 468x60 Banner Ad */}
+      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 pt-4">
+        <AdBanner468x60 />
+      </div>
+
       {/* 4. TOOLS GRID SECTION */}
       <section className="max-w-[1240px] mx-auto px-4 sm:px-6 py-6 pb-20" id="tools">
         <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
@@ -595,6 +601,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
           </div>
         )}
       </section>
+
+      {/* Native Banner Ad Placement */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <NativeBannerAd />
+      </div>
 
       {/* 5. STEP-BY-STEP "HOW IT WORKS" BLOCK */}
       <section className="bg-white border-t border-b border-slate-200/90 py-16 px-4 sm:px-6">
@@ -1099,6 +1110,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
           </div>
         </div>
       </section>
+
+      {/* Smartlink Partner Offer Banner */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+        <SmartlinkBanner />
+      </div>
 
       {/* 9. REAL FAQ ACCORDION SECTION */}
       <section className="bg-white border-t border-slate-200/90 py-16 px-4 sm:px-6" id="faq">

@@ -286,8 +286,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Right Action: Privacy Badge & OCR Quick Highlight & Dark Mode Toggle */}
+          {/* Right Action: Privacy Badge & OCR Quick Highlight & Dark Mode Toggle & Sponsored Deals */}
           <div className="hidden sm:flex items-center space-x-2.5">
+            <a
+              href="https://www.profitableratecpmnetwork.com/f3pdmxxp?key=07f66cf702716ea7e47c05ed052f6f0a"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-xs shadow-amber-500/25 hover:shadow-md hover:shadow-amber-500/30 hover:-translate-y-0.5 active:scale-95 transition-all"
+              title="Special Deals & Offers / স্পেশাল অফার"
+            >
+              <span>🔥 Deals / অফার</span>
+            </a>
+
             <button
               onClick={() => handleToolClick('pdf-ocr')}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-xs font-bold shadow-xs shadow-purple-500/25 hover:from-purple-600 hover:to-indigo-700 hover:shadow-md hover:shadow-purple-500/30 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
@@ -369,6 +379,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="w-full pl-9 pr-3 py-2 text-sm bg-white/90 border border-slate-200 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-red-500/20"
             />
           </div>
+
+          {/* Sponsored Deals Button in Mobile Drawer */}
+          <a
+            href="https://www.profitableratecpmnetwork.com/f3pdmxxp?key=07f66cf702716ea7e47c05ed052f6f0a"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white font-bold text-xs shadow-xs"
+          >
+            <span className="flex items-center gap-1.5">
+              <span>🔥</span>
+              <span>Special Deals &amp; Partner Offers (অফার দেখুন)</span>
+            </span>
+            <span>→</span>
+          </a>
 
           <div className="grid grid-cols-2 gap-2">
             <button
