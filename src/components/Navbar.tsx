@@ -17,6 +17,7 @@ import {
 import { ToolId } from '../types';
 import { TOOLS_DATA } from '../data/toolsData';
 import { saveSearchQuery } from '../utils/searchHistory';
+import { LanguageTranslator } from './LanguageTranslator';
 
 interface NavbarProps {
   currentView: string;
@@ -288,6 +289,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action: Privacy Badge & OCR Quick Highlight & Dark Mode Toggle & Sponsored Deals */}
           <div className="hidden sm:flex items-center space-x-2.5">
+            {/* Language Selector */}
+            <LanguageTranslator variant="navbar" />
+
             <a
               href="https://www.profitableratecpmnetwork.com/f3pdmxxp?key=07f66cf702716ea7e47c05ed052f6f0a"
               target="_blank"
@@ -378,6 +382,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm bg-white/90 border border-slate-200 rounded-xl shadow-xs focus:outline-none focus:ring-2 focus:ring-red-500/20"
             />
+          </div>
+
+          {/* Language Selector Row for Mobile */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              <span>🌐</span>
+              <span>Language / ভাষা</span>
+            </span>
+            <LanguageTranslator variant="navbar" />
           </div>
 
           {/* Sponsored Deals Button in Mobile Drawer */}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TopBar } from './components/TopBar';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ToolLayout } from './components/ToolLayout';
@@ -9,6 +10,8 @@ import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
 import { ToolId, ToolDefinition } from './types';
 import { TOOLS_DATA } from './data/toolsData';
+import { retriggerTranslation } from './utils/translator';
+import { ToolProcessingProvider } from './context/ToolProcessingContext';
 
 // Tools
 import { CompressTool } from './tools/CompressTool';
@@ -29,6 +32,7 @@ import { UnlockTool } from './tools/UnlockTool';
 import { WatermarkTool } from './tools/WatermarkTool';
 import { PageNumberTool } from './tools/PageNumberTool';
 import { OcrTool } from './tools/OcrTool';
+import { CropPdfTool } from './tools/CropPdfTool';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<string>('home');
@@ -164,6 +168,14 @@ export default function App() {
     if (ogUrl) ogUrl.setAttribute('content', canonicalUrl);
   }, [currentView, selectedTool]);
 
+  // When switching between home and tools, re-apply translation to newly mounted components
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      retriggerTranslation();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [currentView]);
+
   const handleSelectTool = (toolId: ToolId) => {
     setCurrentView(toolId);
     window.location.hash = `#${toolId}`;
@@ -210,6 +222,8 @@ export default function App() {
         return <WatermarkTool />;
       case 'page-numbers':
         return <PageNumberTool />;
+      case 'crop-pdf':
+        return <CropPdfTool />;
       case 'pdf-ocr':
         return <OcrTool />;
       default:
@@ -218,75 +232,80 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans text-[#1e293b] antialiased selection:bg-red-500 selection:text-white relative">
-      {/* Frosted ambient background decorative soft blurs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-40">
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-200/40 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-32 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-1/4 w-80 h-80 bg-purple-200/30 rounded-full blur-3xl" />
+    <ToolProcessingProvider>
+      <div className="flex flex-col min-h-screen bg-[#f8fafc] font-sans text-[#1e293b] antialiased selection:bg-red-500 selection:text-white relative">
+        {/* Frosted ambient background decorative soft blurs */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-40">
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-200/40 rounded-full blur-3xl" />
+          <div className="absolute top-1/3 -right-32 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 left-1/4 w-80 h-80 bg-purple-200/30 rounded-full blur-3xl" />
+        </div>
+
+        {/* Top Global Utility Bar */}
+        <TopBar />
+
+        {/* Sticky Header */}
+        <Navbar
+          currentView={currentView}
+          onNavigateHome={() => setCurrentView('home')}
+          onNavigateTool={handleSelectTool}
+          onNavigatePage={handleNavigate}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={toggleDarkMode}
+        />
+
+        {/* Main Content Area */}
+        <main className="flex-grow relative z-10">
+          {currentView === 'home' && (
+            <HomePage
+              onSelectTool={handleSelectTool}
+              onNavigatePage={handleNavigate}
+            />
+          )}
+
+          {currentView === 'about' && (
+            <AboutPage
+              onBackToHome={() => setCurrentView('home')}
+              onSelectTool={handleSelectTool}
+              onNavigatePage={handleNavigate}
+            />
+          )}
+
+          {currentView === 'contact' && (
+            <ContactPage
+              onBackToHome={() => setCurrentView('home')}
+              onSelectTool={handleSelectTool}
+            />
+          )}
+
+          {currentView === 'privacy' && (
+            <PrivacyPage onBackToHome={() => setCurrentView('home')} />
+          )}
+
+          {currentView === 'terms' && (
+            <TermsPage
+              onBackToHome={() => setCurrentView('home')}
+              onSelectTool={handleSelectTool}
+            />
+          )}
+
+          {selectedTool && (
+            <ToolLayout
+              tool={selectedTool}
+              onNavigateHome={() => setCurrentView('home')}
+              onNavigateToTool={handleSelectTool}
+            >
+              {renderToolComponent(selectedTool.id)}
+            </ToolLayout>
+          )}
+        </main>
+
+        {/* Comprehensive Footer */}
+        <Footer
+          onNavigateTool={handleSelectTool}
+          onNavigatePage={handleNavigate}
+        />
       </div>
-
-      {/* Sticky Header */}
-      <Navbar
-        currentView={currentView}
-        onNavigateHome={() => setCurrentView('home')}
-        onNavigateTool={handleSelectTool}
-        onNavigatePage={handleNavigate}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={toggleDarkMode}
-      />
-
-      {/* Main Content Area */}
-      <main className="flex-grow relative z-10">
-        {currentView === 'home' && (
-          <HomePage
-            onSelectTool={handleSelectTool}
-            onNavigatePage={handleNavigate}
-          />
-        )}
-
-        {currentView === 'about' && (
-          <AboutPage
-            onBackToHome={() => setCurrentView('home')}
-            onSelectTool={handleSelectTool}
-            onNavigatePage={handleNavigate}
-          />
-        )}
-
-        {currentView === 'contact' && (
-          <ContactPage
-            onBackToHome={() => setCurrentView('home')}
-            onSelectTool={handleSelectTool}
-          />
-        )}
-
-        {currentView === 'privacy' && (
-          <PrivacyPage onBackToHome={() => setCurrentView('home')} />
-        )}
-
-        {currentView === 'terms' && (
-          <TermsPage
-            onBackToHome={() => setCurrentView('home')}
-            onSelectTool={handleSelectTool}
-          />
-        )}
-
-        {selectedTool && (
-          <ToolLayout
-            tool={selectedTool}
-            onNavigateHome={() => setCurrentView('home')}
-            onNavigateToTool={handleSelectTool}
-          >
-            {renderToolComponent(selectedTool.id)}
-          </ToolLayout>
-        )}
-      </main>
-
-      {/* Comprehensive Footer */}
-      <Footer
-        onNavigateTool={handleSelectTool}
-        onNavigatePage={handleNavigate}
-      />
-    </div>
+    </ToolProcessingProvider>
   );
 }

@@ -23,27 +23,35 @@ import {
   Crop,
 } from 'lucide-react';
 import { formatBytes } from '../utils/formatters';
-import { DocumentCorners } from '../services/documentScanner';
+import { DocumentCorners, autoCropImageFile } from '../services/documentScanner';
 import { CornerAdjustmentModal } from '../components/CornerAdjustmentModal';
 
 interface ImageItem {
   id: string;
   file: File;
   previewUrl: string;
+  originalPreviewUrl: string;
+  croppedPreviewUrl?: string;
+  croppedFile?: File;
   rotation: number; // 0, 90, 180, 270
   source: 'camera' | 'gallery' | 'upload';
   customCorners?: DocumentCorners | null;
+  detectedCorners?: DocumentCorners | null;
+  isAutoCropped?: boolean;
+  showOriginal?: boolean;
+  cropLoading?: boolean;
 }
 
 export const JpgToPdfTool: React.FC = () => {
   const [images, setImages] = useState<ImageItem[]>([]);
-  const [pageSize, setPageSize] = useState<'a4' | 'letter' | 'original'>('a4');
+  const [pageSize, setPageSize] = useState<'fit_crop' | 'a4' | 'letter' | 'original'>('fit_crop');
   const [orientation, setOrientation] = useState<'portrait' | 'landscape' | 'auto'>('auto');
-  const [margin, setMargin] = useState<'none' | 'small' | 'medium'>('small');
+  const [margin, setMargin] = useState<'none' | 'small' | 'medium'>('none');
   
   // Document Scanner Enhancement Options
   const [colorMode, setColorMode] = useState<'color' | 'bw' | 'grayscale' | 'original'>('color');
   const [autoCrop, setAutoCrop] = useState<boolean>(true);
+  const [cropMode, setCropMode] = useState<'page' | 'tight_content'>('page');
   const [removeShadows, setRemoveShadows] = useState<boolean>(true);
 
   const [activeCornerModalItem, setActiveCornerModalItem] = useState<ImageItem | null>(null);
@@ -122,6 +130,99 @@ export const JpgToPdfTool: React.FC = () => {
     startCamera(nextFacing);
   };
 
+  const runAutoCropOnItem = async (
+    item: ImageItem,
+    targetAutoCrop: boolean = autoCrop,
+    targetCropMode: 'page' | 'tight_content' = cropMode,
+    forcedCorners?: DocumentCorners | null
+  ) => {
+    const cornersToUse = forcedCorners !== undefined ? forcedCorners : item.customCorners;
+
+    if (!targetAutoCrop && !cornersToUse) {
+      setImages((prev) =>
+        prev.map((img) =>
+          img.id === item.id
+            ? {
+                ...img,
+                previewUrl: img.originalPreviewUrl,
+                isAutoCropped: false,
+                cropLoading: false,
+                showOriginal: false,
+              }
+            : img
+        )
+      );
+      return;
+    }
+
+    setImages((prev) =>
+      prev.map((img) => (img.id === item.id ? { ...img, cropLoading: true } : img))
+    );
+
+    try {
+      const res = await autoCropImageFile(item.file, {
+        autoCrop: targetAutoCrop,
+        cropMode: targetCropMode,
+        removeShadows,
+        colorMode,
+        customCorners: cornersToUse || undefined,
+      });
+
+      setImages((prev) =>
+        prev.map((img) => {
+          if (img.id !== item.id) return img;
+          return {
+            ...img,
+            previewUrl: img.showOriginal ? img.originalPreviewUrl : res.previewUrl,
+            croppedPreviewUrl: res.previewUrl,
+            croppedFile: res.processedFile,
+            detectedCorners: res.detectedCorners,
+            customCorners: cornersToUse,
+            isAutoCropped: true,
+            cropLoading: false,
+          };
+        })
+      );
+    } catch (err) {
+      console.warn('Auto crop background error:', err);
+      setImages((prev) =>
+        prev.map((img) => (img.id === item.id ? { ...img, cropLoading: false } : img))
+      );
+    }
+  };
+
+  const toggleShowOriginal = (index: number) => {
+    setImages((prev) => {
+      const copy = [...prev];
+      const item = copy[index];
+      const nextShow = !item.showOriginal;
+      copy[index] = {
+        ...item,
+        showOriginal: nextShow,
+        previewUrl: nextShow
+          ? item.originalPreviewUrl
+          : (item.croppedPreviewUrl || item.originalPreviewUrl),
+      };
+      return copy;
+    });
+  };
+
+  const handleToggleAutoCrop = (enabled: boolean) => {
+    setAutoCrop(enabled);
+    images.forEach((item) => {
+      runAutoCropOnItem(item, enabled, cropMode);
+    });
+  };
+
+  const handleChangeCropMode = (mode: 'page' | 'tight_content') => {
+    setCropMode(mode);
+    if (autoCrop) {
+      images.forEach((item) => {
+        runAutoCropOnItem(item, true, mode);
+      });
+    }
+  };
+
   const capturePhoto = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
@@ -142,16 +243,22 @@ export const JpgToPdfTool: React.FC = () => {
         const file = new File([blob], fileName, { type: 'image/jpeg' });
         const previewUrl = URL.createObjectURL(blob);
 
-        setImages((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-${Math.random()}`,
-            file,
-            previewUrl,
-            rotation: 0,
-            source: 'camera',
-          },
-        ]);
+        const newItem: ImageItem = {
+          id: `${Date.now()}-${Math.random()}`,
+          file,
+          previewUrl,
+          originalPreviewUrl: previewUrl,
+          rotation: 0,
+          source: 'camera',
+          cropLoading: autoCrop,
+          isAutoCropped: false,
+          showOriginal: false,
+        };
+
+        setImages((prev) => [...prev, newItem]);
+        if (autoCrop) {
+          runAutoCropOnItem(newItem, true, cropMode);
+        }
 
         // Close camera on capture (or keep open for multi-shot if desired)
         stopCamera();
@@ -168,12 +275,17 @@ export const JpgToPdfTool: React.FC = () => {
 
     Array.from(fileList).forEach((file) => {
       if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name)) {
+        const origUrl = URL.createObjectURL(file);
         newItems.push({
           id: `${Date.now()}-${Math.random()}-${file.name}`,
           file,
-          previewUrl: URL.createObjectURL(file),
+          previewUrl: origUrl,
+          originalPreviewUrl: origUrl,
           rotation: 0,
           source,
+          cropLoading: autoCrop,
+          isAutoCropped: false,
+          showOriginal: false,
         });
       }
     });
@@ -181,6 +293,9 @@ export const JpgToPdfTool: React.FC = () => {
     if (newItems.length > 0) {
       setImages((prev) => [...prev, ...newItems]);
       setError(null);
+      if (autoCrop) {
+        newItems.forEach((item) => runAutoCropOnItem(item, true, cropMode));
+      }
     }
   };
 
@@ -209,7 +324,7 @@ export const JpgToPdfTool: React.FC = () => {
     // Apply rotation on canvas to generate new File
     try {
       const img = new Image();
-      img.src = item.previewUrl;
+      img.src = item.originalPreviewUrl || item.previewUrl;
       await new Promise((resolve) => {
         img.onload = resolve;
       });
@@ -236,16 +351,28 @@ export const JpgToPdfTool: React.FC = () => {
           const rotatedFile = new File([blob], item.file.name, { type: item.file.type || 'image/jpeg' });
           const newPreview = URL.createObjectURL(blob);
 
+          const updatedItem: ImageItem = {
+            ...item,
+            file: rotatedFile,
+            previewUrl: newPreview,
+            originalPreviewUrl: newPreview,
+            croppedPreviewUrl: undefined,
+            croppedFile: undefined,
+            detectedCorners: undefined,
+            customCorners: undefined,
+            rotation: newRotation,
+            cropLoading: autoCrop,
+          };
+
           setImages((prev) => {
             const copy = [...prev];
-            copy[index] = {
-              ...item,
-              file: rotatedFile,
-              previewUrl: newPreview,
-              rotation: newRotation,
-            };
+            copy[index] = updatedItem;
             return copy;
           });
+
+          if (autoCrop) {
+            runAutoCropOnItem(updatedItem, true, cropMode);
+          }
         },
         item.file.type || 'image/jpeg',
         0.95
@@ -277,10 +404,43 @@ export const JpgToPdfTool: React.FC = () => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSaveCorners = (id: string, corners: DocumentCorners | null) => {
-    setImages((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, customCorners: corners } : item))
-    );
+  const handleSaveCorners = (id: string, corners: DocumentCorners | null, applyToAll?: boolean) => {
+    const target = images.find((i) => i.id === id);
+    if (!target) return;
+
+    if (applyToAll && corners) {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth || img.width || 1;
+        const h = img.naturalHeight || img.height || 1;
+        const normCorners = {
+          topLeft: { x: corners.topLeft.x / w, y: corners.topLeft.y / h },
+          topRight: { x: corners.topRight.x / w, y: corners.topRight.y / h },
+          bottomRight: { x: corners.bottomRight.x / w, y: corners.bottomRight.y / h },
+          bottomLeft: { x: corners.bottomLeft.x / w, y: corners.bottomLeft.y / h },
+        };
+
+        // Apply relative crop geometry across all items
+        images.forEach((item) => {
+          const itemImg = new Image();
+          itemImg.onload = () => {
+            const iw = itemImg.naturalWidth || itemImg.width || 1;
+            const ih = itemImg.naturalHeight || itemImg.height || 1;
+            const scaledCorners: DocumentCorners = {
+              topLeft: { x: Math.round(normCorners.topLeft.x * iw), y: Math.round(normCorners.topLeft.y * ih) },
+              topRight: { x: Math.round(normCorners.topRight.x * iw), y: Math.round(normCorners.topRight.y * ih) },
+              bottomRight: { x: Math.round(normCorners.bottomRight.x * iw), y: Math.round(normCorners.bottomRight.y * ih) },
+              bottomLeft: { x: Math.round(normCorners.bottomLeft.x * iw), y: Math.round(normCorners.bottomLeft.y * ih) },
+            };
+            runAutoCropOnItem(item, autoCrop, cropMode, scaledCorners);
+          };
+          itemImg.src = item.originalPreviewUrl || item.previewUrl;
+        });
+      };
+      img.src = target.originalPreviewUrl || target.previewUrl;
+    } else {
+      runAutoCropOnItem(target, autoCrop, cropMode, corners);
+    }
   };
 
   // Convert to PDF
@@ -293,7 +453,8 @@ export const JpgToPdfTool: React.FC = () => {
 
       const items = images.map((img) => ({
         file: img.file,
-        customCorners: img.customCorners,
+        preprocessedFile: (autoCrop && img.croppedFile) ? img.croppedFile : undefined,
+        customCorners: img.customCorners || (autoCrop ? img.detectedCorners : undefined),
       }));
 
       const pdfBlob = await imagesToPdf(items, {
@@ -302,6 +463,7 @@ export const JpgToPdfTool: React.FC = () => {
         margin,
         scannerOptions: {
           autoCrop,
+          cropMode,
           removeShadows,
           whitenBackground: true,
           suppressBleedThrough: true,
@@ -655,27 +817,59 @@ export const JpgToPdfTool: React.FC = () => {
                 className="group relative flex flex-col rounded-2xl bg-white/90 backdrop-blur-xs border border-slate-200/90 overflow-hidden shadow-xs hover:border-red-300 transition-all"
               >
                 {/* Image Preview */}
-                <div className="relative aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100">
+                <div className="relative aspect-[4/3] bg-slate-900 flex items-center justify-center overflow-hidden border-b border-slate-100">
                   <img
                     src={item.previewUrl}
                     alt={item.file.name}
-                    className="w-full h-full object-contain p-2"
+                    className="w-full h-full object-contain p-1.5 transition-all"
                   />
+
+                  {/* Loading overlay while auto-crop processes */}
+                  {item.cropLoading && (
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-2xs flex flex-col items-center justify-center text-white gap-2 z-10">
+                      <Loader2 className="w-5 h-5 animate-spin text-red-400" />
+                      <span className="text-[11px] font-semibold">অটো ক্রপ ডিটেক্ট হচ্ছে...</span>
+                    </div>
+                  )}
+
                   {/* Badge showing page number */}
-                  <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-900/80 text-white font-bold text-[10px] backdrop-blur-xs">
+                  <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-slate-900/85 text-white font-bold text-[10px] backdrop-blur-xs z-10">
                     Page {idx + 1}
                   </span>
 
                   {/* Badge showing source */}
-                  <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-white/90 text-slate-700 font-semibold text-[9px] uppercase border border-slate-200/80 shadow-2xs">
+                  <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-white/95 text-slate-700 font-semibold text-[9px] uppercase border border-slate-200/80 shadow-2xs z-10">
                     {item.source === 'camera' ? '📷 Camera' : item.source === 'gallery' ? '🖼️ Gallery' : '📁 Upload'}
                   </span>
 
-                  {item.customCorners && (
-                    <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-md bg-sky-600/90 text-white font-bold text-[9px] shadow-xs">
-                      Corners Adjusted
-                    </span>
-                  )}
+                  {/* Bottom badges & Preview switch */}
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                    {item.customCorners ? (
+                      <span className="px-2 py-0.5 rounded-md bg-sky-600/95 text-white font-bold text-[9px] shadow-xs">
+                        ✂️ কাস্টম ক্রপ
+                      </span>
+                    ) : autoCrop && item.isAutoCropped ? (
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-600/95 text-white font-bold text-[9px] shadow-xs flex items-center gap-1">
+                        <Check className="w-2.5 h-2.5" />
+                        <span>✂️ অটো ক্রপড (পেজ)</span>
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-300 font-semibold text-[9px]">
+                        পুরো ফ্রেম
+                      </span>
+                    )}
+
+                    {item.croppedPreviewUrl && (
+                      <button
+                        type="button"
+                        onClick={() => toggleShowOriginal(idx)}
+                        className="px-2 py-0.5 rounded-md bg-black/70 hover:bg-black/90 text-white font-medium text-[9px] border border-white/20 backdrop-blur-xs transition-colors cursor-pointer"
+                        title={item.showOriginal ? 'ক্রপ করা পেজ দেখুন' : 'মূল ফটো দেখুন'}
+                      >
+                        {item.showOriginal ? '✂️ ক্রপ পেজ' : '🖼️ মূল ছবি'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Card Info & Tools */}
@@ -693,11 +887,11 @@ export const JpgToPdfTool: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setActiveCornerModalItem(item)}
-                      title="Adjust Page Corners & Crop"
-                      className={`p-1.5 rounded-lg transition-colors ${
+                      title="ক্রপ কর্নার ঠিক করুন (Adjust Corners)"
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                         item.customCorners
-                          ? 'text-sky-600 bg-sky-50 hover:bg-sky-100'
-                          : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                          ? 'text-sky-600 bg-sky-50 hover:bg-sky-100 font-bold'
+                          : 'text-slate-600 hover:text-red-600 hover:bg-red-50'
                       }`}
                     >
                       <Crop className="w-3.5 h-3.5" />
@@ -707,7 +901,7 @@ export const JpgToPdfTool: React.FC = () => {
                       type="button"
                       onClick={() => rotateImage(idx)}
                       title="Rotate 90°"
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                     >
                       <RotateCw className="w-3.5 h-3.5" />
                     </button>
@@ -717,7 +911,7 @@ export const JpgToPdfTool: React.FC = () => {
                       onClick={() => moveUp(idx)}
                       disabled={idx === 0}
                       title="Move Up"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-20 transition-colors"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-20 transition-colors cursor-pointer"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
                     </button>
@@ -727,7 +921,7 @@ export const JpgToPdfTool: React.FC = () => {
                       onClick={() => moveDown(idx)}
                       disabled={idx === images.length - 1}
                       title="Move Down"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-20 transition-colors"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-20 transition-colors cursor-pointer"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />
                     </button>
@@ -736,7 +930,7 @@ export const JpgToPdfTool: React.FC = () => {
                       type="button"
                       onClick={() => removeImage(idx)}
                       title="Delete Image"
-                      className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                      className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -746,65 +940,103 @@ export const JpgToPdfTool: React.FC = () => {
             ))}
           </div>
 
-          {/* Document Scanner Engine Card */}
-          <div className="rounded-2xl bg-white/90 backdrop-blur-md p-5 border border-slate-200/90 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-red-500" />
-                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                  Document Scanner Processing
-                </h4>
+          {/* Document Auto-Crop & Scanner Engine Card */}
+          <div className="rounded-2xl bg-white/95 backdrop-blur-md p-5 border-2 border-red-100/90 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <Crop className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                    <span>অটো ক্রপ ও ব্যাকগ্রাউন্ড রিমুভাল</span>
+                    <span className="text-[10px] text-slate-400 font-normal lowercase">(Auto-Crop Document Page)</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    খাতা বা বইয়ের ছবি থেকে বাড়তি টেবিল, বিছানা বা মেঝের ব্যাকগ্রাউন্ড স্বয়ংক্রিয়ভাবে মুছে ফেলে শুধু পেজের অংশ রাখে
+                  </p>
+                </div>
               </div>
-              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                Auto-Enhanced
+              <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-full border ${
+                autoCrop ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-100 border-slate-200'
+              }`}>
+                <Check className="w-3.5 h-3.5" />
+                <span>{autoCrop ? 'অটো ক্রপ অন' : 'অটো ক্রপ অফ'}</span>
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Scan Mode / Filter */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Scan Filter
-                </label>
-                <select
-                  value={colorMode}
-                  onChange={(e: any) => setColorMode(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/20"
-                >
-                  <option value="color">Clean Color Scan (Default)</option>
-                  <option value="bw">Crisp Black &amp; White</option>
-                  <option value="grayscale">Grayscale Document</option>
-                  <option value="original">Original Photo (Unprocessed)</option>
-                </select>
-              </div>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {/* Auto Boundary Crop */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Page Boundary Crop
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  অটো ক্রপ (Auto-Crop)
                 </label>
                 <select
                   value={autoCrop ? 'true' : 'false'}
-                  onChange={(e: any) => setAutoCrop(e.target.value === 'true')}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  onChange={(e) => handleToggleAutoCrop(e.target.value === 'true')}
+                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 >
-                  <option value="true">Auto-Crop Table / Floor / Bed</option>
-                  <option value="false">Keep Full Camera Frame</option>
+                  <option value="true">✂️ অন (খাতা/বইয়ের বাড়তি ব্যাকগ্রাউন্ড বাদ)</option>
+                  <option value="false">❌ অফ (পুরো ফ্রেমের ছবি রাখুন)</option>
                 </select>
               </div>
 
-              {/* Shadow & Lighting Normalization */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Lighting &amp; Shadows
+              {/* Crop Mode */}
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  ক্রপ ডিটেকশন মোড
+                </label>
+                <select
+                  value={cropMode}
+                  disabled={!autoCrop}
+                  onChange={(e) => handleChangeCropMode(e.target.value as any)}
+                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:opacity-50"
+                >
+                  <option value="page">📖 খাতা ও বইয়ের পেজ (টেবিল/মেঝে বাদ)</option>
+                  <option value="tight_content">📝 শুধু লেখা ও পেজ (লেখা ফোকাসড)</option>
+                </select>
+              </div>
+
+              {/* Scan Filter */}
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  স্ক্যান ফিল্টার
+                </label>
+                <select
+                  value={colorMode}
+                  onChange={(e: any) => {
+                    setColorMode(e.target.value);
+                    if (autoCrop) {
+                      images.forEach((item) => runAutoCropOnItem(item, autoCrop, cropMode));
+                    }
+                  }}
+                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                >
+                  <option value="color">🎨 কালার স্ক্যান (ক্লিন ও পরিষ্কার)</option>
+                  <option value="bw">📄 ক্রিস্প ব্ল্যাক &amp; হোয়াইট</option>
+                  <option value="grayscale">📑 গ্রেস্কেল ডকুমেন্ট</option>
+                  <option value="original">🖼️ অরিজিনাল ছবি</option>
+                </select>
+              </div>
+
+              {/* Shadows & Page Brightness */}
+              <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  ছায়া দূর ও পেজ পরিষ্কার
                 </label>
                 <select
                   value={removeShadows ? 'true' : 'false'}
-                  onChange={(e: any) => setRemoveShadows(e.target.value === 'true')}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  onChange={(e: any) => {
+                    const val = e.target.value === 'true';
+                    setRemoveShadows(val);
+                    if (autoCrop) {
+                      images.forEach((item) => runAutoCropOnItem(item, autoCrop, cropMode));
+                    }
+                  }}
+                  className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 >
-                  <option value="true">Remove Shadows &amp; Whiten Page</option>
-                  <option value="false">Keep Original Lighting</option>
+                  <option value="true">✨ ছায়া রিমুভ ও পেজ পরিষ্কার</option>
+                  <option value="false">📸 স্বাভাবিক আলো রাখুন</option>
                 </select>
               </div>
             </div>
@@ -827,7 +1059,8 @@ export const JpgToPdfTool: React.FC = () => {
                   onChange={(e: any) => setPageSize(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 >
-                  <option value="a4">A4 (Standard Document)</option>
+                  <option value="fit_crop">✂️ শুধু ক্রপ করা পেজ (Zero Background / Fit Cropped Page) — রিকমেন্ডেড</option>
+                  <option value="a4">A4 (Standard Document Sheet)</option>
                   <option value="letter">US Letter</option>
                   <option value="original">Original Image Aspect Ratio</option>
                 </select>

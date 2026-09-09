@@ -1,9 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, Download, RefreshCw, ArrowLeft, Copy, Check, FileCheck } from 'lucide-react';
+import {
+  CheckCircle2,
+  Download,
+  RefreshCw,
+  ArrowLeft,
+  Copy,
+  Check,
+  FileCheck,
+  Share2,
+  Smartphone,
+  Globe,
+  ExternalLink,
+} from 'lucide-react';
 import { ProcessedResult } from '../types';
 import { formatBytes, downloadBlob } from '../utils/formatters';
 import { AdSlot } from './AdSlot';
+import { ShareButton } from './ShareButton';
+import { ShareModal } from './ShareModal';
+import { copyToClipboard } from '../utils/shareUtils';
 
 interface ResultScreenProps {
   result: ProcessedResult;
@@ -125,22 +140,78 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           <button
             type="button"
             onClick={handleDownload}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl btn-gradient-primary btn-shimmer px-9 py-4.5 text-base sm:text-lg font-extrabold text-white shadow-[0_8px_25px_rgba(220,38,38,0.35)] hover:shadow-[0_12px_32px_rgba(220,38,38,0.5)] active:scale-[0.98] transition-all min-h-[56px] cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-2xl btn-gradient-primary btn-shimmer px-8 py-4.5 text-base sm:text-lg font-extrabold text-white shadow-[0_8px_25px_rgba(220,38,38,0.35)] hover:shadow-[0_12px_32px_rgba(220,38,38,0.5)] active:scale-[0.98] transition-all min-h-[56px] cursor-pointer"
             id="download-result-button"
           >
             <Download className="w-5 h-5 stroke-[2.8] group-hover:translate-y-0.5 transition-transform" />
-            Download {getDownloadLabel()}
+            <span>Download {getDownloadLabel()}</span>
           </button>
+
+          {/* Web Share API: Share File Button */}
+          <ShareButton
+            mode="file"
+            blob={result.blob}
+            fileName={result.fileName}
+            fileSize={result.newSize}
+            toolTitle={toolTitle}
+            variant="outline"
+            size="lg"
+            label="Share File"
+            className="w-full sm:w-auto min-h-[56px] px-7 py-4.5 text-sm sm:text-base font-bold bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md cursor-pointer"
+            id="share-file-result-button"
+          />
 
           <button
             type="button"
             onClick={onReset}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-50 to-white hover:from-white hover:to-slate-100/90 px-7 py-4.5 text-sm sm:text-base font-bold text-slate-700 hover:text-slate-900 active:scale-[0.98] transition-all min-h-[56px] border-2 border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-slate-50 to-white hover:from-white hover:to-slate-100/90 px-6 py-4.5 text-sm sm:text-base font-bold text-slate-700 hover:text-slate-900 active:scale-[0.98] transition-all min-h-[56px] border-2 border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md cursor-pointer"
             id="process-another-button"
           >
             <RefreshCw className="w-4 h-4 text-slate-500" />
-            Process Another File
+            <span>Process Another File</span>
           </button>
+        </div>
+
+        {/* Quick Web Share API Bar: Direct Options for File or Tool URL */}
+        <div className="mt-7 pt-6 border-t border-slate-100">
+          <div className="rounded-2xl bg-gradient-to-r from-slate-50/90 via-white to-slate-50/90 border border-slate-200/80 p-4 sm:p-5 text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                  <Smartphone className="w-3.5 h-3.5 text-red-600" />
+                  <span>Instant Device Sharing (Web Share API)</span>
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  Send this {getDownloadLabel()} directly to WhatsApp, Gmail, AirDrop, or Telegram without uploading to any server.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <ShareButton
+                  mode="file"
+                  blob={result.blob}
+                  fileName={result.fileName}
+                  fileSize={result.newSize}
+                  toolTitle={toolTitle}
+                  variant="secondary"
+                  size="sm"
+                  label="Share File"
+                  id="quick-share-file-pill"
+                  className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                />
+
+                <ShareButton
+                  mode="url"
+                  toolTitle={toolTitle}
+                  variant="secondary"
+                  size="sm"
+                  label="Share Tool URL"
+                  id="quick-share-url-pill"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* OCR / Extracted Text Viewer if applicable */}
@@ -171,13 +242,27 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       <AdSlot format="banner" />
 
       {/* Back to tools button */}
-      <div className="mt-4 text-center">
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Return to tool setup
+          <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+          <span>Process Another File</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            window.location.hash = '';
+            window.dispatchEvent(new HashChangeEvent('hashchange'));
+          }}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-xs transition-colors cursor-pointer"
+          id="result-back-home-button"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>← Back to All Tools / হোমে ফিরে যান</span>
         </button>
       </div>
     </div>

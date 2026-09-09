@@ -5,6 +5,7 @@ import { compressPdfFile } from '../services/pdfEngine';
 import { ProcessedResult } from '../types';
 import { Minimize2, Zap, Sparkles, Shield, Loader2, ArrowRight } from 'lucide-react';
 import { formatBytes } from '../utils/formatters';
+import { useToolProcessing } from '../context/ToolProcessingContext';
 
 export const CompressTool: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -12,14 +13,25 @@ export const CompressTool: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProcessedResult | null>(null);
+  const { startProcessing, updateProgress, finishProcessing } = useToolProcessing();
 
   const handleProcess = async () => {
     if (!file) return;
     try {
       setProcessing(true);
       setError(null);
+      startProcessing({
+        stage: `Compressing & rebuilding PDF streams (${level} mode)...`,
+        fileName: file.name,
+        detail: 'In-browser WebAssembly PDF stream compression • Zero server upload',
+      });
+
+      // Advance initial progress for instant feedback
+      updateProgress(35, 'Parsing document object catalog & content streams...');
 
       const res = await compressPdfFile(file, level);
+      updateProgress(90, 'Repacking cross-reference tables & generating output...');
+
       const nameWithoutExt = file.name.replace(/\.pdf$/i, '');
       const downloadUrl = URL.createObjectURL(res.blob);
 
@@ -35,6 +47,7 @@ export const CompressTool: React.FC = () => {
       setError(err.message || 'Failed to compress the PDF document. Please try a different file.');
     } finally {
       setProcessing(false);
+      finishProcessing();
     }
   };
 

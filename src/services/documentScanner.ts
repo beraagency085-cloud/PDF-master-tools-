@@ -38,6 +38,8 @@ export interface DocumentCorners {
 
 export interface ScannerOptions {
   autoCrop?: boolean;
+  cropMode?: 'page' | 'tight_content';
+  tightCrop?: boolean;
   removeShadows?: boolean;
   whitenBackground?: boolean;
   suppressBleedThrough?: boolean;
@@ -265,20 +267,22 @@ function isValidConvexQuad(corners: DocumentCorners, origW: number, origH: numbe
 /**
  * Detect Physical Paper Document Boundary & 4 Corners with Confidence Evaluation
  * 
- * Employs Edge-Fitting & Convex Polyline Analysis:
- * 1. Estimates perimeter background versus central paper sheet.
- * 2. Uses Morphological Closing to merge all handwriting, diagrams, and margins into a solid paper mass.
- * 3. Identifies the 4 dominant physical straight edge lines (Top, Right, Bottom, Left).
- * 4. Intersects edge lines to calculate exact 4 physical corner points.
- * 5. Performs Content Safety Area check to expand outward if any ink is close to a boundary.
- * 6. Evaluates confidence score; if confidence is low, safely defaults to full frame.
+ * Strict Multi-Stage Processing Pipeline:
+ * 1. Estimates perimeter background (table, floor, bed, desk) vs central paper/book/notebook sheet.
+ * 2. Scans for dominant physical boundary transitions along all 4 sides.
+ * 3. Identifies content & handwriting bounding envelope to ensure zero text or diagrams are cut off.
+ * 4. Fits lines and intersects them to calculate the 4 exact physical corner points.
+ * 5. Applies tight zero-background boundary trim so surrounding desk/bed/floor is 100% removed.
  */
-export function detectDocumentCornersWithConfidence(sourceCanvas: HTMLCanvasElement): DetectionResult {
+export function detectDocumentCornersWithConfidence(
+  sourceCanvas: HTMLCanvasElement,
+  options?: ScannerOptions
+): DetectionResult {
   const origWidth = sourceCanvas.width;
   const origHeight = sourceCanvas.height;
 
-  // Work on downsampled resolution (~400px max dim) for fast & robust segmentation
-  const maxDim = 400;
+  // Work on downsampled resolution (~380px max dim) for rapid, noise-resistant processing
+  const maxDim = 380;
   const scale = Math.min(1, maxDim / Math.max(origWidth, origHeight));
   const workW = Math.max(60, Math.round(origWidth * scale));
   const workH = Math.max(60, Math.round(origHeight * scale));
@@ -292,14 +296,13 @@ export function detectDocumentCornersWithConfidence(sourceCanvas: HTMLCanvasElem
   }
 
   ctx.drawImage(sourceCanvas, 0, 0, workW, workH);
-
   const imgData = ctx.getImageData(0, 0, workW, workH);
   const data = imgData.data;
 
   // 1. Analyze perimeter background color (table, bed, desk surrounding paper)
   let borderR = 0, borderG = 0, borderB = 0, borderCount = 0;
-  const borderMarginX = Math.max(2, Math.round(workW * 0.05));
-  const borderMarginY = Math.max(2, Math.round(workH * 0.05));
+  const borderMarginX = Math.max(2, Math.round(workW * 0.04));
+  const borderMarginY = Math.max(2, Math.round(workH * 0.04));
 
   for (let x = 0; x < workW; x += 2) {
     for (let y = 0; y < borderMarginY; y++) {
@@ -329,124 +332,182 @@ export function detectDocumentCornersWithConfidence(sourceCanvas: HTMLCanvasElem
   const borderLum = 0.299 * borderR + 0.587 * borderG + 0.114 * borderB;
 
   // 2. Sample center region of the paper
-  let centerLum = 0, centerCount = 0;
-  const cStartX = Math.round(workW * 0.30);
-  const cEndX = Math.round(workW * 0.70);
-  const cStartY = Math.round(workH * 0.30);
-  const cEndY = Math.round(workH * 0.70);
+  let centerR = 0, centerG = 0, centerB = 0, centerCount = 0;
+  const cStartX = Math.round(workW * 0.25);
+  const cEndX = Math.round(workW * 0.75);
+  const cStartY = Math.round(workH * 0.25);
+  const cEndY = Math.round(workH * 0.75);
 
   for (let y = cStartY; y < cEndY; y += 2) {
     for (let x = cStartX; x < cEndX; x += 2) {
       const idx = (y * workW + x) * 4;
-      centerLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      centerR += data[idx];
+      centerG += data[idx + 1];
+      centerB += data[idx + 2];
       centerCount++;
     }
   }
-  centerLum /= centerCount || 1;
+  centerR /= centerCount || 1;
+  centerG /= centerCount || 1;
+  centerB /= centerCount || 1;
+  const centerLum = 0.299 * centerR + 0.587 * centerG + 0.114 * centerB;
 
-  // Contrast between center paper and background border
+  // Color distance between border and center
+  const colorDistBorderCenter = Math.hypot(centerR - borderR, centerG - borderG, centerB - borderB);
   const lumContrast = Math.abs(centerLum - borderLum);
 
-  // If contrast between perimeter and center is very low, the page fills the full frame
-  if (lumContrast < 18) {
-    return {
-      corners: fullFrameCorners(origWidth, origHeight),
-      confidence: 0.90,
-      isHighConfidence: true,
-    };
-  }
+  // 3. Find Content / Handwriting / Ruling Envelope
+  let minContX = workW, maxContX = 0, minContY = workH, maxContY = 0;
+  let contentPixelCount = 0;
 
-  // 3. Binary Paper Mask
-  const paperMask = new Uint8Array(workW * workH);
-  let paperPixelCount = 0;
-  const thresholdLum = Math.max(borderLum + 12, Math.min(centerLum * 0.70, borderLum + 32));
-
-  for (let y = 0; y < workH; y++) {
+  for (let y = 3; y < workH - 3; y++) {
     const row = y * workW;
-    for (let x = 0; x < workW; x++) {
+    for (let x = 3; x < workW - 3; x++) {
       const idx = (row + x) * 4;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      const colorDist = Math.hypot(r - borderR, g - borderG, b - borderB);
-
-      if (lum >= thresholdLum || colorDist > 25 || lum > 165) {
-        paperMask[row + x] = 255;
-        paperPixelCount++;
-      } else {
-        paperMask[row + x] = 0;
+      const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      // Check if it's text/ink or high-frequency edge
+      if (lum < centerLum - 18 || lum < 120) {
+        minContX = Math.min(minContX, x);
+        maxContX = Math.max(maxContX, x);
+        minContY = Math.min(minContY, y);
+        maxContY = Math.max(maxContY, y);
+        contentPixelCount++;
       }
     }
   }
 
-  const totalPixels = workW * workH;
-  if (paperPixelCount > totalPixels * 0.94 || paperPixelCount < totalPixels * 0.20) {
+  const hasSignificantContent = contentPixelCount > (workW * workH * 0.005) && maxContX > minContX + 15 && maxContY > minContY + 15;
+
+  // If cropMode is 'tight_content', fit directly around content + comfortable margin
+  if (options?.cropMode === 'tight_content' && hasSignificantContent) {
+    const padX = Math.round(workW * 0.035);
+    const padY = Math.round(workH * 0.035);
+    const clX1 = Math.max(0, minContX - padX);
+    const clX2 = Math.min(workW, maxContX + padX);
+    const clY1 = Math.max(0, minContY - padY);
+    const clY2 = Math.min(workH, maxContY + padY);
+
     return {
-      corners: fullFrameCorners(origWidth, origHeight),
-      confidence: 0.85,
+      corners: {
+        topLeft: { x: (clX1 / scale), y: (clY1 / scale) },
+        topRight: { x: (clX2 / scale), y: (clY1 / scale) },
+        bottomRight: { x: (clX2 / scale), y: (clY2 / scale) },
+        bottomLeft: { x: (clX1 / scale), y: (clY2 / scale) },
+      },
+      confidence: 0.92,
       isHighConfidence: true,
     };
   }
 
-  // 4. Morphological Closing (Dilate then Erode with large radius)
-  const closedMask1 = new Uint8Array(workW * workH);
-  const closedMask2 = new Uint8Array(workW * workH);
-  const closeRadius = Math.max(6, Math.round(Math.min(workW, workH) * 0.055));
-
-  binaryDilate(paperMask, closedMask1, workW, workH, closeRadius);
-  binaryErode(closedMask1, closedMask2, workW, workH, closeRadius);
-
-  // 5. Extract bounding edge points of the paper mask
-  // Find top, bottom, left, right extents row-by-row & column-by-column
+  // 4. Directional Boundary Scans (Top, Bottom, Left, Right)
+  // We scan inward from all 4 borders to find where background ends and paper begins
   const topEdgePoints: Point[] = [];
   const bottomEdgePoints: Point[] = [];
   const leftEdgePoints: Point[] = [];
   const rightEdgePoints: Point[] = [];
 
-  for (let x = 0; x < workW; x += 2) {
-    // Top-most paper pixel in column x
-    for (let y = 0; y < workH; y++) {
-      if (closedMask2[y * workW + x] === 255) {
-        topEdgePoints.push({ x, y });
-        break;
+  const maxScanY = Math.round(workH * 0.42);
+  const maxScanX = Math.round(workW * 0.42);
+
+  // Scan Top & Bottom
+  for (let x = 4; x < workW - 4; x += 3) {
+    // Top boundary
+    let topFoundY = 0;
+    let maxTopScore = 0;
+    for (let y = 1; y < maxScanY; y++) {
+      const idx = (y * workW + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      const prevIdx = ((y - 1) * workW + x) * 4;
+      const pR = data[prevIdx], pG = data[prevIdx + 1], pB = data[prevIdx + 2];
+      const pLum = 0.299 * pR + 0.587 * pG + 0.114 * pB;
+
+      const grad = Math.abs(lum - pLum);
+      const distFromBorder = Math.hypot(r - borderR, g - borderG, b - borderB);
+      const score = grad * 1.5 + distFromBorder;
+
+      if (score > maxTopScore && score > 20 && (lum > borderLum || lum > 140)) {
+        maxTopScore = score;
+        topFoundY = y;
       }
     }
-    // Bottom-most paper pixel in column x
-    for (let y = workH - 1; y >= 0; y--) {
-      if (closedMask2[y * workW + x] === 255) {
-        bottomEdgePoints.push({ x, y });
-        break;
+    if (topFoundY > 0) topEdgePoints.push({ x, y: topFoundY });
+
+    // Bottom boundary
+    let botFoundY = workH - 1;
+    let maxBotScore = 0;
+    for (let y = workH - 2; y > workH - maxScanY; y--) {
+      const idx = (y * workW + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      const nextIdx = ((y + 1) * workW + x) * 4;
+      const nR = data[nextIdx], nG = data[nextIdx + 1], nB = data[nextIdx + 2];
+      const nLum = 0.299 * nR + 0.587 * nG + 0.114 * nB;
+
+      const grad = Math.abs(lum - nLum);
+      const distFromBorder = Math.hypot(r - borderR, g - borderG, b - borderB);
+      const score = grad * 1.5 + distFromBorder;
+
+      if (score > maxBotScore && score > 20 && (lum > borderLum || lum > 140)) {
+        maxBotScore = score;
+        botFoundY = y;
       }
     }
+    if (botFoundY < workH - 1) bottomEdgePoints.push({ x, y: botFoundY });
   }
 
-  for (let y = 0; y < workH; y += 2) {
-    // Left-most paper pixel in row y
-    for (let x = 0; x < workW; x++) {
-      if (closedMask2[y * workW + x] === 255) {
-        leftEdgePoints.push({ x, y });
-        break;
+  // Scan Left & Right
+  for (let y = 4; y < workH - 4; y += 3) {
+    // Left boundary
+    let leftFoundX = 0;
+    let maxLeftScore = 0;
+    for (let x = 1; x < maxScanX; x++) {
+      const idx = (y * workW + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      const prevIdx = (y * workW + x - 1) * 4;
+      const pR = data[prevIdx], pG = data[prevIdx + 1], pB = data[prevIdx + 2];
+      const pLum = 0.299 * pR + 0.587 * pG + 0.114 * pB;
+
+      const grad = Math.abs(lum - pLum);
+      const distFromBorder = Math.hypot(r - borderR, g - borderG, b - borderB);
+      const score = grad * 1.5 + distFromBorder;
+
+      if (score > maxLeftScore && score > 20 && (lum > borderLum || lum > 140)) {
+        maxLeftScore = score;
+        leftFoundX = x;
       }
     }
-    // Right-most paper pixel in row y
-    for (let x = workW - 1; x >= 0; x--) {
-      if (closedMask2[y * workW + x] === 255) {
-        rightEdgePoints.push({ x, y });
-        break;
+    if (leftFoundX > 0) leftEdgePoints.push({ x: leftFoundX, y });
+
+    // Right boundary
+    let rightFoundX = workW - 1;
+    let maxRightScore = 0;
+    for (let x = workW - 2; x > workW - maxScanX; x--) {
+      const idx = (y * workW + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      const nextIdx = (y * workW + x + 1) * 4;
+      const nR = data[nextIdx], nG = data[nextIdx + 1], nB = data[nextIdx + 2];
+      const nLum = 0.299 * nR + 0.587 * nG + 0.114 * nB;
+
+      const grad = Math.abs(lum - nLum);
+      const distFromBorder = Math.hypot(r - borderR, g - borderG, b - borderB);
+      const score = grad * 1.5 + distFromBorder;
+
+      if (score > maxRightScore && score > 20 && (lum > borderLum || lum > 140)) {
+        maxRightScore = score;
+        rightFoundX = x;
       }
     }
+    if (rightFoundX < workW - 1) rightEdgePoints.push({ x: rightFoundX, y });
   }
 
-  if (topEdgePoints.length < 10 || bottomEdgePoints.length < 10 || leftEdgePoints.length < 10 || rightEdgePoints.length < 10) {
-    return {
-      corners: fullFrameCorners(origWidth, origHeight),
-      confidence: 0.4,
-      isHighConfidence: false,
-    };
-  }
-
-  // 6. Robust Linear Regression on the 4 edge point sets to form 4 physical boundary lines
+  // Helper: Robust line fitting
   function fitLine(pts: Point[]): { m: number; c: number; isVertical: boolean } {
     let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0, sumYY = 0;
     const n = pts.length;
@@ -461,25 +522,21 @@ export function detectDocumentCornersWithConfidence(sourceCanvas: HTMLCanvasElem
     const varY = sumYY - (sumY * sumY) / n;
 
     if (varX > varY) {
-      // y = m*x + c
       const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX || 1);
       const c = (sumY - m * sumX) / n;
       return { m, c, isVertical: false };
     } else {
-      // x = m*y + c (vertical line parametrization)
       const m = (n * sumXY - sumX * sumY) / (n * sumYY - sumY * sumY || 1);
       const c = (sumX - m * sumY) / n;
       return { m, c, isVertical: true };
     }
   }
 
-  // Intersect two fitted lines
   function intersectLines(
     l1: { m: number; c: number; isVertical: boolean },
     l2: { m: number; c: number; isVertical: boolean }
   ): Point {
     if (!l1.isVertical && l2.isVertical) {
-      // l1: y = m1*x + c1, l2: x = m2*y + c2
       const y = (l1.m * l2.c + l1.c) / (1 - l1.m * l2.m || 1);
       const x = l2.m * y + l2.c;
       return { x, y };
@@ -487,83 +544,145 @@ export function detectDocumentCornersWithConfidence(sourceCanvas: HTMLCanvasElem
       const y = (l2.m * l1.c + l2.c) / (1 - l2.m * l1.m || 1);
       const x = l1.m * y + l1.c;
       return { x, y };
-    } else if (!l1.isVertical && !l2.isVertical) {
+    } else {
       const x = (l2.c - l1.c) / (l1.m - l2.m || 1);
       const y = l1.m * x + l1.c;
-      return { x, y };
-    } else {
-      const y = (l2.c - l1.c) / (l1.m - l2.m || 1);
-      const x = l1.m * y + l1.c;
       return { x, y };
     }
   }
 
-  // Filter out the outer 10% on each edge to avoid corner rounding in line fitting
-  const topFiltered = topEdgePoints.slice(Math.round(topEdgePoints.length * 0.12), Math.round(topEdgePoints.length * 0.88));
-  const botFiltered = bottomEdgePoints.slice(Math.round(bottomEdgePoints.length * 0.12), Math.round(bottomEdgePoints.length * 0.88));
-  const leftFiltered = leftEdgePoints.slice(Math.round(leftEdgePoints.length * 0.12), Math.round(leftEdgePoints.length * 0.88));
-  const rightFiltered = rightEdgePoints.slice(Math.round(rightEdgePoints.length * 0.12), Math.round(rightEdgePoints.length * 0.88));
+  // 5. Evaluate if edge points form a solid boundary
+  const hasEdges = topEdgePoints.length >= 6 || bottomEdgePoints.length >= 6 || leftEdgePoints.length >= 6 || rightEdgePoints.length >= 6;
 
-  const topLine = fitLine(topFiltered.length >= 5 ? topFiltered : topEdgePoints);
-  const botLine = fitLine(botFiltered.length >= 5 ? botFiltered : bottomEdgePoints);
-  const leftLine = fitLine(leftFiltered.length >= 5 ? leftFiltered : leftEdgePoints);
-  const rightLine = fitLine(rightFiltered.length >= 5 ? rightFiltered : rightEdgePoints);
-
-  const rawTL = intersectLines(topLine, leftLine);
-  const rawTR = intersectLines(topLine, rightLine);
-  const rawBR = intersectLines(botLine, rightLine);
-  const rawBL = intersectLines(botLine, leftLine);
-
-  // Convert to full source resolution
-  let corners: DocumentCorners = {
-    topLeft: { x: Math.max(0, Math.min(origWidth, rawTL.x / scale)), y: Math.max(0, Math.min(origHeight, rawTL.y / scale)) },
-    topRight: { x: Math.max(0, Math.min(origWidth, rawTR.x / scale)), y: Math.max(0, Math.min(origHeight, rawTR.y / scale)) },
-    bottomRight: { x: Math.max(0, Math.min(origWidth, rawBR.x / scale)), y: Math.max(0, Math.min(origHeight, rawBR.y / scale)) },
-    bottomLeft: { x: Math.max(0, Math.min(origWidth, rawBL.x / scale)), y: Math.max(0, Math.min(origHeight, rawBL.y / scale)) },
-  };
-
-  // 7. Non-Destructive Safe Content & Handwriting Expansion
-  // Expand corners slightly outward (3.5% default) to guarantee zero loss of margin handwriting or edge text
-  const centroidX = (corners.topLeft.x + corners.topRight.x + corners.bottomRight.x + corners.bottomLeft.x) / 4;
-  const centroidY = (corners.topLeft.y + corners.topRight.y + corners.bottomRight.y + corners.bottomLeft.y) / 4;
-  const expandFactor = 1.035; // 3.5% outward margin guarantee
-
-  function expandOutward(p: Point): Point {
-    const nx = centroidX + (p.x - centroidX) * expandFactor;
-    const ny = centroidY + (p.y - centroidY) * expandFactor;
-    return {
-      x: Math.max(0, Math.min(origWidth, nx)),
-      y: Math.max(0, Math.min(origHeight, ny)),
+  if (hasEdges) {
+    // Median values of edge points as backup
+    const medY = (pts: Point[], fallback: number) => {
+      if (pts.length === 0) return fallback;
+      const sorted = [...pts].map(p => p.y).sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
     };
+    const medX = (pts: Point[], fallback: number) => {
+      if (pts.length === 0) return fallback;
+      const sorted = [...pts].map(p => p.x).sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
+    };
+
+    const topY = medY(topEdgePoints, 0);
+    const botY = medY(bottomEdgePoints, workH);
+    const leftX = medX(leftEdgePoints, 0);
+    const rightX = medX(rightEdgePoints, workW);
+
+    let rawTL: Point = { x: leftX, y: topY };
+    let rawTR: Point = { x: rightX, y: topY };
+    let rawBR: Point = { x: rightX, y: botY };
+    let rawBL: Point = { x: leftX, y: botY };
+
+    // If we have enough edge points for line fitting, refine corners with exact line intersection
+    if (topEdgePoints.length >= 5 && leftEdgePoints.length >= 5 && rightEdgePoints.length >= 5 && bottomEdgePoints.length >= 5) {
+      const topLine = fitLine(topEdgePoints);
+      const botLine = fitLine(bottomEdgePoints);
+      const leftLine = fitLine(leftEdgePoints);
+      const rightLine = fitLine(rightEdgePoints);
+
+      const iTL = intersectLines(topLine, leftLine);
+      const iTR = intersectLines(topLine, rightLine);
+      const iBR = intersectLines(botLine, rightLine);
+      const iBL = intersectLines(botLine, leftLine);
+
+      // Verify reasonable intersection
+      if (iTL.x < iTR.x && iBL.x < iBR.x && iTL.y < iBL.y && iTR.y < iBR.y) {
+        rawTL = iTL;
+        rawTR = iTR;
+        rawBR = iBR;
+        rawBL = iBL;
+      }
+    }
+
+    // Safety: ensure detected box safely encompasses content
+    if (hasSignificantContent) {
+      rawTL.x = Math.min(rawTL.x, Math.max(0, minContX - 5));
+      rawTL.y = Math.min(rawTL.y, Math.max(0, minContY - 5));
+      rawTR.x = Math.max(rawTR.x, Math.min(workW, maxContX + 5));
+      rawTR.y = Math.min(rawTR.y, Math.max(0, minContY - 5));
+      rawBR.x = Math.max(rawBR.x, Math.min(workW, maxContX + 5));
+      rawBR.y = Math.max(rawBR.y, Math.min(workH, maxContY + 5));
+      rawBL.x = Math.min(rawBL.x, Math.max(0, minContX - 5));
+      rawBL.y = Math.max(rawBL.y, Math.min(workH, maxContY + 5));
+    }
+
+    // Convert to source image resolution
+    let corners: DocumentCorners = {
+      topLeft: { x: Math.max(0, Math.min(origWidth, rawTL.x / scale)), y: Math.max(0, Math.min(origHeight, rawTL.y / scale)) },
+      topRight: { x: Math.max(0, Math.min(origWidth, rawTR.x / scale)), y: Math.max(0, Math.min(origHeight, rawTR.y / scale)) },
+      bottomRight: { x: Math.max(0, Math.min(origWidth, rawBR.x / scale)), y: Math.max(0, Math.min(origHeight, rawBR.y / scale)) },
+      bottomLeft: { x: Math.max(0, Math.min(origWidth, rawBL.x / scale)), y: Math.max(0, Math.min(origHeight, rawBL.y / scale)) },
+    };
+
+    // ZERO BACKGROUND TRIM:
+    // If an outer boundary was detected away from the image frame, pull corners slightly INWARD
+    // (0.8% towards centroid) to guarantee 100% of surrounding desk, table, or bed is eliminated!
+    const centroidX = (corners.topLeft.x + corners.topRight.x + corners.bottomRight.x + corners.bottomLeft.x) / 4;
+    const centroidY = (corners.topLeft.y + corners.topRight.y + corners.bottomRight.y + corners.bottomLeft.y) / 4;
+    const trimFactor = 0.992; // 0.8% inward snug trim
+
+    function snugInward(p: Point): Point {
+      return {
+        x: Math.max(0, Math.min(origWidth, centroidX + (p.x - centroidX) * trimFactor)),
+        y: Math.max(0, Math.min(origHeight, centroidY + (p.y - centroidY) * trimFactor)),
+      };
+    }
+
+    const cleanCorners: DocumentCorners = {
+      topLeft: snugInward(corners.topLeft),
+      topRight: snugInward(corners.topRight),
+      bottomRight: snugInward(corners.bottomRight),
+      bottomLeft: snugInward(corners.bottomLeft),
+    };
+
+    const area = calculateQuadArea(cleanCorners);
+    const totalArea = origWidth * origHeight;
+    const areaRatio = area / totalArea;
+
+    if (isValidConvexQuad(cleanCorners, origWidth, origHeight) && areaRatio >= 0.15 && areaRatio <= 0.985) {
+      return {
+        corners: cleanCorners,
+        confidence: 0.92,
+        isHighConfidence: true,
+      };
+    }
   }
 
-  const safeCorners: DocumentCorners = {
-    topLeft: expandOutward(corners.topLeft),
-    topRight: expandOutward(corners.topRight),
-    bottomRight: expandOutward(corners.bottomRight),
-    bottomLeft: expandOutward(corners.bottomLeft),
-  };
+  // 6. Content-Aware Fallback (for close photos of notebooks/books with small borders)
+  if (hasSignificantContent) {
+    const padX = Math.round(workW * 0.04);
+    const padY = Math.round(workH * 0.04);
+    const clX1 = Math.max(0, minContX - padX);
+    const clX2 = Math.min(workW, maxContX + padX);
+    const clY1 = Math.max(0, minContY - padY);
+    const clY2 = Math.min(workH, maxContY + padY);
 
-  // 8. Geometry & Confidence Verification
-  const area = calculateQuadArea(safeCorners);
-  const totalArea = origWidth * origHeight;
-  const areaRatio = area / totalArea;
-
-  const isValidGeometry = isValidConvexQuad(safeCorners, origWidth, origHeight);
-
-  if (isValidGeometry && areaRatio >= 0.28 && areaRatio <= 0.995) {
-    const confidence = Math.min(0.96, Math.max(0.65, lumContrast / 70));
-    return {
-      corners: safeCorners,
-      confidence,
-      isHighConfidence: confidence >= 0.70,
+    const contentCorners: DocumentCorners = {
+      topLeft: { x: (clX1 / scale), y: (clY1 / scale) },
+      topRight: { x: (clX2 / scale), y: (clY1 / scale) },
+      bottomRight: { x: (clX2 / scale), y: (clY2 / scale) },
+      bottomLeft: { x: (clX1 / scale), y: (clY2 / scale) },
     };
+
+    const area = calculateQuadArea(contentCorners);
+    const areaRatio = area / (origWidth * origHeight);
+    if (areaRatio >= 0.15 && areaRatio <= 0.985) {
+      return {
+        corners: contentCorners,
+        confidence: 0.88,
+        isHighConfidence: true,
+      };
+    }
   }
 
-  // Safe fallback to full frame
+  // 7. Safe Default: If no outer table/desk/background exists (page fills camera), return full frame
   return {
     corners: fullFrameCorners(origWidth, origHeight),
-    confidence: 0.50,
+    confidence: 0.80,
     isHighConfidence: false,
   };
 }
@@ -1016,7 +1135,7 @@ export async function processDocumentPhoto(
       workingCanvas = unwarpPerspective(origCanvas, customCorners);
     } else if (autoCrop) {
       try {
-        const det = detectDocumentCornersWithConfidence(origCanvas);
+        const det = detectDocumentCornersWithConfidence(origCanvas, options);
         appliedCorners = det.corners;
         if (det.corners) {
           workingCanvas = unwarpPerspective(origCanvas, det.corners);
@@ -1067,3 +1186,9 @@ export async function processDocumentPhoto(
     URL.revokeObjectURL(imgUrl);
   }
 }
+
+/**
+ * Convenient alias for auto-cropping and scanning a document/book/notebook photo
+ */
+export const autoCropImageFile = processDocumentPhoto;
+

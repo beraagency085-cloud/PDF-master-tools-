@@ -1152,11 +1152,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectTool, onNavigatePage
                       }`}
                     />
                   </button>
-                  {isOpen && (
-                    <div className="px-4 sm:px-5 pb-5 pt-1 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 bg-slate-50/50">
-                      {faq.a}
-                    </div>
-                  )}
+                  <div
+                    className={`px-4 sm:px-5 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 bg-slate-50/50 transition-all duration-200 overflow-hidden ${
+                      isOpen ? 'max-h-96 py-4 opacity-100' : 'max-h-0 py-0 opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    {faq.a}
+                  </div>
                 </div>
               );
             })}

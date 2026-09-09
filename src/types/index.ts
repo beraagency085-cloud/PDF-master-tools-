@@ -16,6 +16,7 @@ export type ToolId =
   | 'unlock-pdf'
   | 'watermark-pdf'
   | 'page-numbers'
+  | 'crop-pdf'
   | 'pdf-ocr';
 
 export type ToolCategory = 'optimize' | 'organize' | 'convert-to-pdf' | 'convert-from-pdf' | 'security-edit' | 'advanced';

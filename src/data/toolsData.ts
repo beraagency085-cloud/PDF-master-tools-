@@ -864,6 +864,51 @@ export const TOOLS_DATA: ToolDefinition[] = [
       ],
     },
   },
+  {
+    id: 'crop-pdf',
+    title: 'Crop PDF',
+    shortTitle: 'Crop PDF',
+    banglaTitle: 'পিডিএফ ক্রপ (Crop PDF)',
+    description: 'Crop PDF pages to custom size, remove margins, and trim excess white borders.',
+    banglaDescription: 'পিডিএফ থেকে বাড়তি মার্জিন কেটে ফেলুন এবং ৮টি হ্যান্ডেল দিয়ে নিখুঁতভাবে পেজ ক্রপ করুন।',
+    keywords: [
+      'crop pdf',
+      'crop pdf pages',
+      'trim pdf margins',
+      'crop pdf online free',
+      'remove white space pdf',
+      'crop pdf editor',
+    ],
+    banglaKeywords: [
+      'পিডিএফ ক্রপ',
+      'পিডিএফ মার্জিন কাটা',
+      'পিডিএফ পেজ ক্রপ করা',
+      'pdf crop kora',
+      'pdf margin katar upay',
+    ],
+    category: 'organize',
+    emoji: '✂️',
+    iconName: 'Crop',
+    color: 'red',
+    acceptedFileTypes: ['.pdf'],
+    acceptedMimeTypes: 'application/pdf',
+    multiple: false,
+    seo: {
+      metaTitle: 'Crop PDF Pages Online — Trim Margins & White Borders | পিডিএফ ক্রপ | PDFMaster Tools',
+      metaDescription: 'Crop PDF pages to custom dimensions, remove wide margins, and cut excess background online for free. পিডিএফ ক্রপ করার সহজ উপায়।',
+      h1: 'Crop PDF Pages Online (পিডিএফ ক্রপ করুন)',
+      explanation: 'Define custom crop areas using 8 interactive handles with rule-of-thirds grid. Trim page margins across all pages in one click.',
+      howToSteps: [
+        { step: 1, title: 'Upload PDF / ফাইল আপলোড করুন', desc: 'Select the PDF document you want to crop.' },
+        { step: 2, title: 'Adjust Crop Box / ক্রপ এরিয়া নির্ধারণ করুন', desc: 'Drag the 8 red handles or choose full page / auto margin.' },
+        { step: 3, title: 'Crop & Download / ডাউনলোড করুন', desc: 'Apply to all pages or current page and download the trimmed PDF.' },
+      ],
+      faqs: [
+        { question: 'Can I apply the same crop area to all pages?', answer: 'Yes! Check "Apply to all" to crop all pages uniformly.' },
+        { question: 'সবগুলো পেজ কি একসাথে ক্রপ করা যাবে?', answer: 'হ্যাঁ, "Apply to all" অপশন সিলেক্ট করলে ডকুমেন্টের সব পেজে একই মাপ প্রযোজ্য হবে।' },
+      ],
+    },
+  },
 ];
 
 export const CATEGORIES: { id: string; label: string; banglaLabel: string }[] = [

@@ -203,8 +203,57 @@
 
     <!-- Ad Network: Native Banner Script -->
     <script async="async" data-cfasync="false" src="https://pl31200521.profitableratecpmnetwork.com/49108388d41dd2ff9712949878f4c4a5/invoke.js"></script>
+
+    <!-- Google Translate Safe React DOM Polyfill -->
+    <script type="text/javascript">
+      if (typeof Node === 'function' && Node.prototype) {
+        var origRemoveChild = Node.prototype.removeChild;
+        Node.prototype.removeChild = function (child) {
+          if (child.parentNode !== this) {
+            return child;
+          }
+          return origRemoveChild.apply(this, arguments);
+        };
+        var origInsertBefore = Node.prototype.insertBefore;
+        Node.prototype.insertBefore = function (newNode, refNode) {
+          if (refNode && refNode.parentNode !== this) {
+            return newNode;
+          }
+          return origInsertBefore.apply(this, arguments);
+        };
+      }
+    </script>
+
+    <!-- Pre-load and sync saved language before Google Translate initializes -->
+    <script type="text/javascript">
+      try {
+        var savedLang = localStorage.getItem('user_selected_language');
+        if (savedLang && savedLang !== 'en' && savedLang !== 'original') {
+          var cookieVal = '/en/' + savedLang;
+          document.cookie = 'googtrans=' + cookieVal + '; path=/;';
+          document.cookie = 'googtrans=' + cookieVal + '; path=/; SameSite=Lax;';
+          document.cookie = 'googtrans=' + cookieVal + '; path=/; SameSite=None; Secure;';
+        }
+      } catch (e) {}
+    </script>
+
+    <!-- Google Translate Element Initialization -->
+    <script type="text/javascript">
+      function googleTranslateElementInit() {
+        if (window.google && window.google.translate) {
+          new window.google.translate.TranslateElement({
+            pageLanguage: 'en',
+            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false
+          }, 'google_translate_element');
+        }
+      }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased font-['Plus_Jakarta_Sans',sans-serif] selection:bg-red-500 selection:text-white">
+    <!-- Hidden Google Translate Element (Off-screen, active for full DOM scanning) -->
+    <div id="google_translate_element" style="position: absolute; top: -9999px; left: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

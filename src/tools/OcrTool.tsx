@@ -5,6 +5,7 @@ import { performOcr, OCR_LANGUAGES, SupportedOcrLanguage, OcrProgress } from '..
 import { ProcessedResult } from '../types';
 import { Sparkles, Copy, Check, Download, FileText, Loader2, ArrowRight } from 'lucide-react';
 import { downloadBlob } from '../utils/formatters';
+import { useToolProcessing } from '../context/ToolProcessingContext';
 
 export const OcrTool: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -15,6 +16,7 @@ export const OcrTool: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProcessedResult | null>(null);
+  const { startProcessing, updateProgress, finishProcessing } = useToolProcessing();
 
   const handleProcess = async () => {
     if (!file) return;
@@ -23,9 +25,17 @@ export const OcrTool: React.FC = () => {
       setProcessing(true);
       setError(null);
       setExtractedText('');
+      startProcessing({
+        stage: `Initializing Tesseract WebAssembly engine (${language})...`,
+        fileName: file.name,
+        detail: 'In-browser SIMD WebAssembly neural character recognition • 100% private',
+      });
 
       const ocrResult = await performOcr(file, language, (p) => {
         setProgress(p);
+        const percent = Math.min(99, Math.max(5, Math.round(p.progress * 100)));
+        const stageLabel = p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Processing OCR';
+        updateProgress(percent, `${stageLabel}...`);
       });
 
       setExtractedText(ocrResult.text);
@@ -48,6 +58,7 @@ export const OcrTool: React.FC = () => {
       setError(err.message || 'OCR processing encountered an issue. Please ensure the document is clear and readable.');
     } finally {
       setProcessing(false);
+      finishProcessing();
     }
   };
 

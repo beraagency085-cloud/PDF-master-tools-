@@ -5,12 +5,14 @@ import { mergePdfFiles } from '../services/pdfEngine';
 import { ProcessedResult } from '../types';
 import { Layers, ArrowUp, ArrowDown, Trash2, Plus, Loader2, ArrowRight, FileText } from 'lucide-react';
 import { formatBytes } from '../utils/formatters';
+import { useToolProcessing } from '../context/ToolProcessingContext';
 
 export const MergeTool: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProcessedResult | null>(null);
+  const { startProcessing, updateProgress, finishProcessing } = useToolProcessing();
 
   const moveUp = (index: number) => {
     if (index === 0) return;
@@ -43,8 +45,15 @@ export const MergeTool: React.FC = () => {
     try {
       setProcessing(true);
       setError(null);
+      startProcessing({
+        stage: `Merging ${files.length} documents in WebAssembly sandbox...`,
+        fileName: `${files[0]?.name} + ${files.length - 1} more`,
+        detail: 'Combining PDF page trees & cross-reference streams in client RAM',
+      });
 
+      updateProgress(30, 'Allocating memory & loading PDF page trees...');
       const mergedBlob = await mergePdfFiles(files);
+      updateProgress(90, 'Finalizing merged document buffer...');
       const totalOriginalSize = files.reduce((acc, f) => acc + f.size, 0);
       const downloadUrl = URL.createObjectURL(mergedBlob);
 
@@ -60,6 +69,7 @@ export const MergeTool: React.FC = () => {
       setError(err.message || 'Failed to merge PDF files. Please ensure files are valid PDFs.');
     } finally {
       setProcessing(false);
+      finishProcessing();
     }
   };
 

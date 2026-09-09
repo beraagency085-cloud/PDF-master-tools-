@@ -301,12 +301,20 @@ async function embedImageInPdfDoc(pdfDoc: PDFDocument, file: File) {
 export interface ImageToPdfItem {
   file: File;
   customCorners?: DocumentCorners | null;
+  preprocessedFile?: File;
+}
+
+export interface PdfCropRect {
+  normX: number;
+  normY: number;
+  normWidth: number;
+  normHeight: number;
 }
 
 export async function imagesToPdf(
   imageFiles: (File | ImageToPdfItem)[],
   options: {
-    pageSize: 'a4' | 'letter' | 'original';
+    pageSize: 'fit_crop' | 'a4' | 'letter' | 'original';
     orientation: 'portrait' | 'landscape' | 'auto';
     margin: 'none' | 'small' | 'medium';
     scannerOptions?: ScannerOptions;
@@ -320,7 +328,7 @@ export async function imagesToPdf(
     medium: 40,
   };
 
-  const margin = MARGIN_SIZES[options.margin];
+  const margin = options.pageSize === 'fit_crop' ? 0 : MARGIN_SIZES[options.margin];
   const defaultScanOpts = options.scannerOptions ?? {
     autoCrop: true,
     removeShadows: true,
@@ -332,17 +340,18 @@ export async function imagesToPdf(
 
   for (const item of imageFiles) {
     const file = item instanceof File ? item : item.file;
+    const preprocessed = !(item instanceof File) ? item.preprocessedFile : undefined;
     const itemCorners = !(item instanceof File) ? item.customCorners : undefined;
 
-    let cleanFile = file;
+    let cleanFile = preprocessed || file;
 
     const itemScanOpts: ScannerOptions = {
       ...defaultScanOpts,
       customCorners: itemCorners || defaultScanOpts.customCorners,
     };
 
-    // Apply professional document scanner processing (crop table/floor, unwarp, remove shadows, whiten paper)
-    if (itemScanOpts.colorMode !== 'original' || itemScanOpts.autoCrop !== false || itemScanOpts.customCorners) {
+    // Apply document scan enhancement if not already pre-processed
+    if (!preprocessed && (itemScanOpts.colorMode !== 'original' || itemScanOpts.autoCrop !== false || itemScanOpts.customCorners)) {
       try {
         const scanRes = await processDocumentPhoto(file, itemScanOpts);
         cleanFile = scanRes.processedFile;
@@ -353,7 +362,30 @@ export async function imagesToPdf(
 
     const embeddedImg = await embedImageInPdfDoc(pdfDoc, cleanFile);
 
-    if (options.pageSize === 'original') {
+    if (options.pageSize === 'fit_crop') {
+      // 100% Zero-Background Document Fit: PDF page dimensions match the cropped document exactly!
+      // Scale to standard printable document points (595.28 pt base)
+      const isLandscape = embeddedImg.width > embeddedImg.height;
+      const baseDim = 595.28;
+      let pageWidth = 0;
+      let pageHeight = 0;
+
+      if (!isLandscape) {
+        pageWidth = baseDim;
+        pageHeight = Math.round(baseDim * (embeddedImg.height / embeddedImg.width) * 100) / 100;
+      } else {
+        pageHeight = baseDim;
+        pageWidth = Math.round(baseDim * (embeddedImg.width / embeddedImg.height) * 100) / 100;
+      }
+
+      const page = pdfDoc.addPage([pageWidth, pageHeight]);
+      page.drawImage(embeddedImg, {
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: pageHeight,
+      });
+    } else if (options.pageSize === 'original') {
       // Original size: PDF page matches exact pixel dimensions (+ margin if selected)
       const pageWidth = embeddedImg.width + margin * 2;
       const pageHeight = embeddedImg.height + margin * 2;
@@ -421,6 +453,39 @@ export async function imagesToPdf(
         height: drawHeight,
       });
     }
+  }
+
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
+  return new Blob([pdfBytes], { type: 'application/pdf' });
+}
+
+/**
+ * Losslessly crops PDF document pages using native PDF CropBox / MediaBox
+ */
+export async function cropPdfPages(
+  file: File,
+  cropRect: PdfCropRect,
+  applyToAll: boolean = true,
+  pageIndex: number = 0
+): Promise<Blob> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer);
+  const pages = pdfDoc.getPages();
+
+  const targetPages = applyToAll ? pages : [pages[pageIndex] || pages[0]];
+
+  for (const page of targetPages) {
+    const { width, height } = page.getSize();
+
+    // Convert top-left normalized coordinates to PDF bottom-left coordinates
+    const x = Math.max(0, cropRect.normX * width);
+    const w = Math.min(width - x, cropRect.normWidth * width);
+    const pdfY = (1 - (cropRect.normY + cropRect.normHeight)) * height;
+    const y = Math.max(0, pdfY);
+    const h = Math.min(height - y, cropRect.normHeight * height);
+
+    page.setCropBox(x, y, w, h);
+    page.setMediaBox(x, y, w, h);
   }
 
   const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
